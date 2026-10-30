@@ -101,12 +101,15 @@ code, .mono { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; }
 .nav a:hover { background: var(--surface-2); color: var(--text); }
 .nav a.active { background: var(--accent-soft); color: var(--accent-strong); }
 .nav { order: 1; }
+.lang-select { order: 2; font: inherit; font-size: .85rem; color: var(--text); background: var(--surface); border: 1px solid var(--border); border-radius: 999px; padding: .4rem .7rem; cursor: pointer; flex: none; }
+.lang-select:hover { background: var(--surface-2); }
 .theme-toggle { order: 2; background: none; border: 1px solid var(--border); color: var(--text); border-radius: 999px; width: 36px; height: 36px; font-size: 1.05rem; cursor: pointer; flex: none; }
 .theme-toggle:hover { background: var(--surface-2); }
 .menu-toggle { order: 3; display: none; background: none; border: 1px solid var(--border); color: var(--text); border-radius: 8px; font-size: 1.2rem; padding: .2rem .6rem; cursor: pointer; }
 @media (max-width: 860px) {
   .menu-toggle { display: block; }
-  .theme-toggle { margin-left: auto; }
+  .lang-select { margin-left: auto; }
+  .topbar { gap: .6rem; }
   .nav { display: none; position: absolute; top: 100%; left: 0; right: 0; flex-direction: column; background: var(--surface); border-bottom: 1px solid var(--border); padding: .5rem 16px 1rem; }
   .nav.open { display: flex; }
 }

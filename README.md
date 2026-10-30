@@ -22,6 +22,7 @@ Extras:
 - Maps (Leaflet + OpenStreetMap): network map on every report and lookup; clicking a one-hop row draws that route pair
 - Charts (Chart.js) — click a bar to drill into that airline or airport
 - Light / dark / system theme toggle, mobile layout, per-page titles, shareable URLs
+- Interface in English, Simplified Chinese and Spanish (`docs/i18n.js`; defaults to the browser language, choice is remembered). Data values stay in English as they appear in OpenFlights.
 
 ## Notes on interpretation
 
