@@ -165,6 +165,8 @@ function pin(ap, cls, label) {
 function makeBarChart(canvas, labels, values, label, onClick) {
   Chart.defaults.color = cssVar('--muted');
   Chart.defaults.font.family = 'Inter, sans-serif';
+  canvas.setAttribute('role', 'img');
+  canvas.setAttribute('aria-label', labels.slice(0, 12).map((l, i) => `${l}: ${values[i]}`).join('; '));
   const chart = new Chart(canvas, {
     type: 'bar',
     data: { labels, datasets: [{ label, data: values, backgroundColor: cssVar('--accent'), borderRadius: 6, maxBarThickness: 28 }] },
@@ -349,6 +351,39 @@ function oneHop(S, D, sameAirline) {
   return { pairs, top, viaCount: byVia.size, direct, directMiles: haversineMiles(s, d) };
 }
 
+/* ---------------- Recent searches ---------------- */
+
+// Stored as {hash, kind, a, b} so labels can be rendered in the current language.
+const RECENT_MAX = 8;
+function getRecent() {
+  try {
+    const list = JSON.parse(localStorage.getItem('recent')) || [];
+    return Array.isArray(list) ? list.filter(r => typeof r.hash === 'string' && r.hash.startsWith('#/')) : [];
+  } catch { return []; }
+}
+function addRecent(item) {
+  const list = [item, ...getRecent().filter(r => r.hash !== item.hash)].slice(0, RECENT_MAX);
+  try { localStorage.setItem('recent', JSON.stringify(list)); } catch { /* storage unavailable */ }
+}
+function recentLabel(r) {
+  if (r.kind === 'hop') return `${r.a} → ${r.b}`;
+  if (r.kind === 'report') return t('recent.report', { code: r.a });
+  return r.a;
+}
+function recentChips() {
+  const list = getRecent();
+  if (!list.length) return '';
+  return `<div class="recent"><span class="recent-label">${t('recent.title')}</span>
+    ${list.map(r => `<a class="chip" href="${esc(r.hash)}">${esc(recentLabel(r))}</a>`).join('')}
+    <button type="button" class="chip recent-clear">${t('recent.clear')}</button></div>`;
+}
+function wireRecent(root) {
+  root.querySelectorAll('.recent-clear').forEach(btn => btn.addEventListener('click', () => {
+    try { localStorage.removeItem('recent'); } catch { /* storage unavailable */ }
+    root.querySelectorAll('.recent').forEach(el => el.remove());
+  }));
+}
+
 /* ---------------- Pages ---------------- */
 
 function renderHome(root) {
@@ -379,11 +414,13 @@ function renderHome(root) {
       <div class="stat"><div class="num">${fmt(countries)}</div><div class="lbl">${t('stat.countries')}</div></div>
     </div>
 
+    ${getRecent().length ? `<div class="card">${recentChips()}</div>` : ''}
+
     <div class="feature-grid" style="margin-bottom:1.25rem">
-      <a class="feature" href="#/lookup"><div class="ico">🔎</div><h3>${t('nav.lookup')}</h3><p>${t('feat.lookup')}</p></a>
-      <a class="feature" href="#/reports"><div class="ico">📊</div><h3>${t('nav.reports')}</h3><p>${t('feat.reports')}</p></a>
-      <a class="feature" href="#/directory"><div class="ico">📇</div><h3>${t('nav.directory')}</h3><p>${t('feat.directory')}</p></a>
-      <a class="feature" href="#/onehop"><div class="ico">🗺️</div><h3>${t('nav.onehop')}</h3><p>${t('feat.onehop')}</p></a>
+      <a class="feature" href="#/lookup"><div class="ico">🔎</div><h2>${t('nav.lookup')}</h2><p>${t('feat.lookup')}</p></a>
+      <a class="feature" href="#/reports"><div class="ico">📊</div><h2>${t('nav.reports')}</h2><p>${t('feat.reports')}</p></a>
+      <a class="feature" href="#/directory"><div class="ico">📇</div><h2>${t('nav.directory')}</h2><p>${t('feat.directory')}</p></a>
+      <a class="feature" href="#/onehop"><div class="ico">🗺️</div><h2>${t('nav.onehop')}</h2><p>${t('feat.onehop')}</p></a>
     </div>
 
     <div class="grid grid-2">
@@ -405,6 +442,7 @@ function renderHome(root) {
       .bindPopup(`<b>${esc(ap.iata)}</b> · ${esc(ap.name)}<br>${esc(ap.city)}, ${esc(ap.country)}<br>${t('pop.routes', { n: fmt(n) })}<br><a href="#/lookup?type=airport&code=${esc(ap.iata)}">${t('pop.details')}</a>`)
       .addTo(map);
   }
+  wireRecent(root);
 }
 
 function typeTabs(base, type, code) {
@@ -465,6 +503,7 @@ function renderLookup(root, params) {
   const code = res.code || '';
   let result = res.html || '';
   setTitle(code ? `${code} · ${type === 'airline' ? DB.airline.get(code).name : DB.airport.get(code).name}` : t('lookup.title'));
+  if (code) addRecent({ hash: `#/lookup?type=${type}&code=${code}`, kind: 'lookup', a: code });
 
   if (code && type === 'airline') {
     const a = DB.airline.get(code);
@@ -511,9 +550,10 @@ function renderLookup(root, params) {
   root.innerHTML = `
     <div class="page-head"><h1>${t('lookup.h1')}</h1><p>${t('lookup.lead')}</p></div>
     ${typeTabs('lookup', type, code)}
-    <div class="card">${codeForm('lookup', type, code || input, t('lookup.btn'))}</div>
+    <div class="card">${codeForm('lookup', type, code || input, t('lookup.btn'))}${recentChips()}</div>
     ${result}`;
   wireCodeForm(root);
+  wireRecent(root);
 
   const mapEl = root.querySelector('#ap-map');
   if (mapEl) airportNetworkMap(mapEl, code);
@@ -571,6 +611,7 @@ function renderReports(root, params) {
   let result = res.html || '';
   let chartData = null;
   setTitle(code ? t('reports.titleCode', { code }) : t('reports.title'));
+  if (code) addRecent({ hash: `#/reports?type=${type}&code=${code}`, kind: 'report', a: code });
 
   if (code && type === 'airline') {
     const a = DB.airline.get(code);
@@ -610,7 +651,7 @@ function renderReports(root, params) {
   root.innerHTML = `
     <div class="page-head"><h1>${t('reports.title')}</h1><p>${t('reports.lead')}</p></div>
     ${typeTabs('reports', type, code)}
-    <div class="card">${codeForm('reports', type, code || input, t('reports.btn'))}</div>
+    <div class="card">${codeForm('reports', type, code || input, t('reports.btn'))}${recentChips()}</div>
     ${result}
     ${chartData ? `<div class="grid grid-2">
       <div class="card"><h2>${esc(chartData.title)}</h2><div class="chart-box" style="height:${Math.max(240, chartData.labels.length * 26)}px"><canvas id="c-report"></canvas></div></div>
@@ -618,6 +659,7 @@ function renderReports(root, params) {
     </div>` : ''}`;
   wireCodeForm(root);
   wireTables(root);
+  wireRecent(root);
   if (chartData) {
     makeBarChart(root.querySelector('#c-report'), chartData.labels, chartData.values, t('col.routes'), i => { location.hash = chartData.go(i); });
     (type === 'airline' ? airlineNetworkMap : airportNetworkMap)(root.querySelector('#report-map'), code);
@@ -663,6 +705,7 @@ function renderOneHop(root, params) {
     if (errs.length) result = `<div class="stack">${errs.join('')}</div>`;
     else {
       data = oneHop(S, D, same);
+      addRecent({ hash: hopHref(S, D), kind: 'hop', a: S, b: D });
       const s = DB.airport.get(S), d = DB.airport.get(D);
       const directNote = data.direct.length
         ? `<div class="msg info">${t('hop.direct', { n: data.direct.length, s: esc(S), d: esc(D), airlines: data.direct.map(r => esc(r.airline)).join(', '), mi: fmt(Math.round(data.directMiles)) })}</div>`
@@ -726,6 +769,7 @@ function renderOneHop(root, params) {
       </form>
       <div class="chips">${[['SJC', 'BOS'], ['SFO', 'JFK'], ['LAX', 'YYZ'], ['SEA', 'MIA'], ['ATL', 'DEN'], ['SFO', 'LHR']]
         .map(([a, b]) => `<a class="chip" href="#/onehop?src=${a}&dst=${b}">${a} → ${b}</a>`).join('')}</div>
+      ${recentChips()}
     </div>
     ${result}`;
 
@@ -738,6 +782,7 @@ function renderOneHop(root, params) {
     [form.src.value, form.dst.value] = [form.dst.value, form.src.value];
   });
   wireTables(root);
+  wireRecent(root);
 
   const mapEl = root.querySelector('#hop-map');
   if (mapEl && data) {
@@ -808,7 +853,7 @@ function renderAbout(root) {
         <p>${t('about.projectText')}</p>
         <ul class="clean">${li(['about.f1', 'about.f2', 'about.f3', 'about.f4'])}</ul>
         <h3 style="margin-top:1rem">${t('about.extras')}</h3>
-        <ul class="clean">${li(['about.e1', 'about.e2', 'about.e3', 'about.e4', 'about.e5'])}</ul>
+        <ul class="clean">${li(['about.e1', 'about.e2', 'about.e3', 'about.e4', 'about.e5', 'about.e6'])}</ul>
       </div>
       <div class="card">
         <h2>${t('about.data')}</h2>
@@ -822,20 +867,107 @@ function renderAbout(root) {
     </div>`;
 }
 
+function shortcutsList() {
+  const row = (keys, text) => `<div><dt>${keys}</dt><dd>${text}</dd></div>`;
+  return `<dl class="kb-list">
+    ${row('<kbd>/</kbd>', t('kb.search'))}
+    ${row('<kbd>?</kbd>', t('kb.help'))}
+    ${row('<kbd>t</kbd>', t('kb.theme'))}
+    ${row(`<kbd>g</kbd> ${t('kb.then')} …`, t('kb.go'))}
+    ${row('<kbd>Esc</kbd>', t('kb.esc'))}
+  </dl>`;
+}
+
+function renderHelp(root) {
+  setTitle(t('help.title'));
+  const qa = [1, 2, 3, 4, 5, 6].map(i =>
+    `<details class="faq"${i === 1 ? ' open' : ''}><summary>${t('help.q' + i)}</summary><p>${t('help.a' + i)}</p></details>`).join('');
+  root.innerHTML = `
+    <div class="page-head"><h1>${t('help.title')}</h1><p>${t('help.lead')}</p></div>
+    <div class="grid grid-2">
+      <div class="card">${qa}</div>
+      <div class="card"><h2>${t('kb.title')}</h2>${shortcutsList()}</div>
+    </div>`;
+}
+
+const REPO_URL = 'https://github.com/gaoruius/vibe-aviate';
+
+function renderContact(root) {
+  setTitle(t('contact.title'));
+  const ext = (href, text) => `<a href="${href}" target="_blank" rel="noopener">${text} ↗</a>`;
+  root.innerHTML = `
+    <div class="page-head"><h1>${t('contact.title')}</h1><p>${t('contact.lead')}</p></div>
+    <div class="grid grid-2">
+      <div class="card">
+        <h2>${t('contact.issue')}</h2>
+        <p class="hint">${t('contact.issueNote')}</p>
+        <a class="btn" href="${REPO_URL}/issues/new" target="_blank" rel="noopener">GitHub Issues ↗</a>
+      </div>
+      <div class="card">
+        <h2>${t('contact.author')}</h2>
+        <p><b>${esc(STUDENT.name)}</b><br><span class="hint">${esc(STUDENT.school)} · ${esc(STUDENT.course)}</span></p>
+        <ul class="clean">
+          <li>${ext('https://github.com/gaoruius', t('contact.github'))}</li>
+          <li>${ext(REPO_URL, t('contact.code'))}</li>
+        </ul>
+      </div>
+    </div>`;
+}
+
+function renderPrivacy(root) {
+  setTitle(t('privacy.title'));
+  root.innerHTML = `
+    <div class="page-head"><h1>${t('privacy.title')}</h1><p>${t('privacy.lead')}</p></div>
+    <div class="card"><ul class="clean">${[1, 2, 3, 4, 5].map(i => `<li>${t('privacy.p' + i)}</li>`).join('')}</ul></div>`;
+}
+
+const CHANGELOG = [
+  { v: '1.3', date: '2026-10-30', items: ['cl.13a', 'cl.13b', 'cl.13c'] },
+  { v: '1.2', date: '2026-10-30', items: ['cl.12a'] },
+  { v: '1.1', date: '2026-10-30', items: ['cl.11a', 'cl.11b', 'cl.11c'] },
+  { v: '1.0', date: '2026-10-30', items: ['cl.10a', 'cl.10b'] },
+];
+
+function renderChangelog(root) {
+  setTitle(t('cl.title'));
+  root.innerHTML = `
+    <div class="page-head"><h1>${t('cl.title')}</h1><p>${t('cl.lead')}</p></div>
+    <ol class="timeline">${CHANGELOG.map(c => `
+      <li class="card"><h2>v${c.v} <time datetime="${c.date}">${c.date}</time></h2>
+        <ul class="clean">${c.items.map(k => `<li>${t(k)}</li>`).join('')}</ul></li>`).join('')}
+    </ol>`;
+}
+
+function renderNotFound(root, params, path) {
+  setTitle(t('nf.title'));
+  const shown = params.get('path') || '#/' + path;
+  root.innerHTML = `
+    <div class="notfound card">
+      <div class="nf-code" aria-hidden="true">404 ✈</div>
+      <h1>${t('nf.title')}</h1>
+      <p>${t('nf.text', { path: esc(shown) })}</p>
+      <a class="btn" href="#/home">${t('nf.home')}</a>
+    </div>`;
+}
+
 /* ---------------- Router ---------------- */
 
-const PAGES = { home: renderHome, lookup: renderLookup, reports: renderReports, directory: renderDirectory, onehop: renderOneHop, about: renderAbout };
+const PAGES = {
+  home: renderHome, lookup: renderLookup, reports: renderReports, directory: renderDirectory, onehop: renderOneHop,
+  about: renderAbout, help: renderHelp, contact: renderContact, privacy: renderPrivacy, changelog: renderChangelog,
+};
 
 function route() {
   const raw = location.hash.replace(/^#\/?/, '');
   const [path, qs] = raw.split('?');
-  const page = PAGES[path] ? path : 'home';
+  const page = path === '' ? 'home' : Object.hasOwn(PAGES, path) ? path : null;
   cleanup();
   const root = document.getElementById('app');
   const div = document.createElement('div');
   div.className = 'page';
   root.replaceChildren(div);
-  PAGES[page](div, new URLSearchParams(qs || ''));
+  if (page) PAGES[page](div, new URLSearchParams(qs || ''));
+  else renderNotFound(div, new URLSearchParams(qs || ''), path);
   document.querySelectorAll('[data-nav]').forEach(a => a.classList.toggle('active', a.dataset.nav === page));
   document.querySelector('.nav').classList.remove('open');
   document.querySelector('.menu-toggle').setAttribute('aria-expanded', 'false');
@@ -873,6 +1005,8 @@ applyTheme(getTheme());
 function applyStaticText() {
   document.documentElement.lang = HTML_LANG[LANG];
   document.querySelectorAll('[data-i18n]').forEach(el => { el.textContent = t(el.dataset.i18n); });
+  document.querySelectorAll('[data-i18n-html]').forEach(el => { el.innerHTML = t(el.dataset.i18nHtml); }); // our own markup only
+  document.querySelectorAll('[data-i18n-label]').forEach(el => { el.setAttribute('aria-label', t(el.dataset.i18nLabel)); el.title = t(el.dataset.i18nLabel); });
   document.querySelector('.menu-toggle').setAttribute('aria-label', t('nav.menu'));
   const sel = document.querySelector('.lang-select');
   sel.value = LANG;
@@ -891,6 +1025,91 @@ document.querySelector('.menu-toggle').addEventListener('click', e => {
   const open = document.querySelector('.nav').classList.toggle('open');
   e.currentTarget.setAttribute('aria-expanded', String(open));
 });
+
+/* ---------------- Keyboard shortcuts ---------------- */
+
+const GO_KEYS = { h: '#/home', l: '#/lookup', r: '#/reports', d: '#/directory', o: '#/onehop', i: '#/about' };
+let gPressedAt = 0;
+
+function openShortcuts() {
+  let dlg = document.getElementById('kb-dialog');
+  if (!dlg) {
+    dlg = document.createElement('dialog');
+    dlg.id = 'kb-dialog';
+    dlg.setAttribute('aria-labelledby', 'kb-title');
+    dlg.addEventListener('click', e => { if (e.target === dlg) dlg.close(); }); // click on backdrop
+    document.body.append(dlg);
+  }
+  dlg.innerHTML = `<h2 id="kb-title">${t('kb.title')}</h2>${shortcutsList()}
+    <form method="dialog"><button class="btn">${t('kb.close')}</button></form>`;
+  if (!dlg.open) dlg.showModal();
+}
+
+document.addEventListener('keydown', e => {
+  if (e.metaKey || e.ctrlKey || e.altKey || e.defaultPrevented) return;
+  if (e.target.closest?.('input, textarea, select, [contenteditable], dialog')) return;
+  if (gPressedAt && Date.now() - gPressedAt < 1500 && GO_KEYS[e.key]) {
+    e.preventDefault();
+    gPressedAt = 0;
+    location.hash = GO_KEYS[e.key];
+    return;
+  }
+  gPressedAt = 0;
+  if (e.key === '/') {
+    e.preventDefault();
+    const focusInput = () => {
+      const input = document.querySelector('#app input[type=text], #app input[type=search]');
+      if (input) { input.focus(); input.select(); }
+    };
+    if (document.querySelector('#app input[type=text], #app input[type=search]')) focusInput();
+    else { location.hash = '#/lookup'; setTimeout(focusInput, 50); }
+  } else if (e.key === '?') {
+    e.preventDefault();
+    openShortcuts();
+  } else if (e.key === 't') {
+    document.querySelector('.theme-toggle').click();
+  } else if (e.key === 'g') {
+    gPressedAt = Date.now();
+  }
+});
+
+/* ---------------- Page chrome: skip link, back to top, offline, install ---------------- */
+
+document.querySelector('.skip-link').addEventListener('click', () => document.getElementById('app').focus());
+
+const toTop = document.querySelector('.to-top');
+addEventListener('scroll', () => { toTop.hidden = scrollY < Math.min(600, innerHeight / 2); }, { passive: true });
+toTop.addEventListener('click', () => {
+  scrollTo({ top: 0, behavior: matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth' });
+  document.getElementById('app').focus({ preventScroll: true });
+});
+
+const offlineBar = document.querySelector('.offline-bar');
+const updateOnline = () => { offlineBar.hidden = navigator.onLine; };
+addEventListener('online', updateOnline);
+addEventListener('offline', updateOnline);
+updateOnline();
+
+let installPrompt = null;
+const installBtn = document.querySelector('.install-btn');
+addEventListener('beforeinstallprompt', e => {
+  e.preventDefault();
+  installPrompt = e;
+  installBtn.hidden = false;
+});
+installBtn.addEventListener('click', async () => {
+  if (!installPrompt) return;
+  installPrompt.prompt();
+  await installPrompt.userChoice;
+  installPrompt = null;
+  installBtn.hidden = true;
+});
+addEventListener('appinstalled', () => { installBtn.hidden = true; });
+
+// Offline support. Only on the deployed (https) site so local edits are never served stale.
+if ('serviceWorker' in navigator && location.protocol === 'https:') {
+  addEventListener('load', () => navigator.serviceWorker.register('sw.js').catch(() => { /* offline mode unavailable */ }));
+}
 
 loadData()
   .then(() => { window.addEventListener('hashchange', route); route(); })

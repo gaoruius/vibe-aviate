@@ -23,6 +23,10 @@ Extras:
 - Charts (Chart.js) — click a bar to drill into that airline or airport
 - Light / dark / system theme toggle, mobile layout, per-page titles, shareable URLs
 - Interface in English, Simplified Chinese and Spanish (`docs/i18n.js`; defaults to the browser language, choice is remembered). Data values stay in English as they appear in OpenFlights.
+- Installable PWA that works offline (`docs/sw.js`, `docs/manifest.webmanifest`)
+- Recent searches, keyboard shortcuts (`?` lists them), back-to-top button, print layout
+- Help / FAQ, Contact, Privacy and Changelog pages; a "not found" page for bad links (`docs/404.html`)
+- Lighthouse (local, mobile): Accessibility 100 · Best Practices 100 · SEO 100
 
 ## Notes on interpretation
 
@@ -44,3 +48,5 @@ Then open http://localhost:8140.
 `docs/` is the whole site (no build step). GitHub Pages serves it from the `main` branch, `/docs` folder: https://gaoruius.github.io/vibe-aviate/
 
 To show a photo on the Get ID page, add `docs/assets/me.jpg`.
+
+The service worker only registers on the https site, so local previews always show your latest edits. After changing site files, bump the `?v=` numbers in `index.html`; returning visitors get the new files on their next visit.
