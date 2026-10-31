@@ -146,7 +146,11 @@ function cleanup() {
 }
 
 function makeMap(el, opts = {}) {
-  const map = L.map(el, { worldCopyJump: true, scrollWheelZoom: false, ...opts });
+  // maxBounds keeps the view between the poles so no empty band shows above or below the tiles.
+  const map = L.map(el, {
+    worldCopyJump: true, scrollWheelZoom: false, minZoom: 1,
+    maxBounds: [[-85, -720], [85, 720]], maxBoundsViscosity: 1, ...opts,
+  });
   L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
     maxZoom: 18,
     attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
@@ -155,10 +159,47 @@ function makeMap(el, opts = {}) {
   return map;
 }
 
-function pin(ap, cls, label) {
-  return L.marker([ap.latN, ap.lonN], {
+function pin(latlng, cls, label, zIndexOffset = 0) {
+  return L.marker(latlng, {
+    zIndexOffset,
     icon: L.divIcon({ className: '', html: `<div class="map-pin ${cls}">${esc(label)}</div>`, iconSize: [30, 30], iconAnchor: [15, 15] }),
   });
+}
+
+/**
+ * A longitude frame for one map. The map's seam (180° from its centre) is put in the widest
+ * gap between the airports shown, so e.g. a US–Asia network is drawn across the Pacific.
+ * ll(ap) places an airport in the frame; path([a, b, …]) returns great-circle polylines that
+ * stay continuous, plus a shifted copy when a route crosses the seam, so every line meets
+ * its markers.
+ */
+function geoFrame(airports) {
+  const lons = airports.map(a => ((a.lonN % 360) + 540) % 360 - 180).sort((x, y) => x - y);
+  let widest = -1, seam = 180;
+  lons.forEach((lon, i) => {
+    const next = i + 1 < lons.length ? lons[i + 1] : lons[0] + 360;
+    if (next - lon > widest) { widest = next - lon; seam = lon + widest / 2; }
+  });
+  const center = seam - 180;
+  const wrap = lon => lon - 360 * Math.round((lon - center) / 360);
+  return {
+    ll: ap => [ap.latN, wrap(ap.lonN)],
+    path(aps, n = 48) {
+      let pts = [];
+      for (let i = 0; i + 1 < aps.length; i++) {
+        const seg = greatCircle(aps[i], aps[i + 1], n);
+        const from = pts.length ? pts[pts.length - 1][1] : wrap(aps[0].lonN);
+        const off = Math.round((from - seg[0][1]) / 360) * 360;
+        const shifted = seg.map(([lat, lon]) => [lat, lon + off]);
+        pts = pts.concat(pts.length ? shifted.slice(1) : shifted);
+      }
+      const lonsP = pts.map(q => q[1]);
+      const out = [pts];
+      if (Math.min(...lonsP) < center - 180) out.push(pts.map(([lat, lon]) => [lat, lon + 360]));
+      if (Math.max(...lonsP) > center + 180) out.push(pts.map(([lat, lon]) => [lat, lon - 360]));
+      return out;
+    },
+  };
 }
 
 // onClick(index) makes each bar a link; the cursor turns into a pointer over bars.
@@ -434,11 +475,13 @@ function renderHome(root) {
   makeBarChart(root.querySelector('#c-airports'), busiest.map(x => `${x.k} · ${DB.airport.get(x.k)?.city ?? ''}`), busiest.map(x => x.n), t('chart.routes'),
     i => { location.hash = `#/reports?type=airport&code=${busiest[i].k}`; });
 
-  const map = makeMap(root.querySelector('#home-map')).setView([30, -40], 2);
+  const map = makeMap(root.querySelector('#home-map'));
   const accent = cssVar('--accent');
+  const geo = geoFrame(DB.airports);
+  map.fitBounds(L.latLngBounds(DB.airports.map(geo.ll)), { padding: [10, 10] });
   for (const ap of DB.airports) {
     const n = (DB.routesByAirport.get(ap.iata) || []).length;
-    L.circleMarker([ap.latN, ap.lonN], { radius: 2 + Math.sqrt(n) / 2.2, color: accent, weight: 1, fillOpacity: .45 })
+    L.circleMarker(geo.ll(ap), { radius: 2 + Math.sqrt(n) / 2.2, color: accent, weight: 1, fillOpacity: .45 })
       .bindPopup(`<b>${esc(ap.iata)}</b> · ${esc(ap.name)}<br>${esc(ap.city)}, ${esc(ap.country)}<br>${t('pop.routes', { n: fmt(n) })}<br><a href="#/lookup?type=airport&code=${esc(ap.iata)}">${t('pop.details')}</a>`)
       .addTo(map);
   }
@@ -565,18 +608,19 @@ function renderLookup(root, params) {
 function airlineNetworkMap(el, code) {
   const map = makeMap(el);
   const accent = cssVar('--accent');
+  const rows = airlineRouteReport(code).filter(r => !isNaN(r.latN));
+  const geo = geoFrame(rows);
   const pairs = new Set();
   for (const r of DB.routesByAirline.get(code) || []) {
     const key = [r.src, r.dst].sort().join('-');
     if (pairs.has(key)) continue;
     pairs.add(key);
     const a = DB.airport.get(r.src), b = DB.airport.get(r.dst);
-    if (a && b) L.polyline(greatCircle(a, b, 24), { color: accent, weight: 1, opacity: .25, interactive: false }).addTo(map);
+    if (a && b) L.polyline(geo.path([a, b], 24), { color: accent, weight: 1, opacity: .25, interactive: false }).addTo(map);
   }
-  const rows = airlineRouteReport(code);
   const max = rows[0]?.routeCount || 1;
-  const dots = rows.filter(r => !isNaN(r.latN)).map(r =>
-    L.circleMarker([r.latN, r.lonN], { radius: 3 + 9 * Math.sqrt(r.routeCount / max), color: accent, weight: 1, fillOpacity: .6 })
+  const dots = rows.map(r =>
+    L.circleMarker(geo.ll(r), { radius: 3 + 9 * Math.sqrt(r.routeCount / max), color: accent, weight: 1, fillOpacity: .6 })
       .bindPopup(`<b>${esc(r.iata)}</b> · ${esc(r.name)}<br>${t('pop.airlineRoutes', { n: r.routeCount, code: esc(code) })}<br><a href="#/lookup?type=airport&code=${esc(r.iata)}">${t('pop.airportDetails')}</a>`));
   const group = L.featureGroup(dots).addTo(map);
   map.fitBounds(group.getBounds(), { padding: [20, 20], maxZoom: 6 });
@@ -587,19 +631,18 @@ function airportNetworkMap(el, code) {
   const a = DB.airport.get(code);
   const map = makeMap(el);
   const accent = cssVar('--accent');
-  const layers = [pin(a, 'src', a.iata)];
-  const seen = new Set();
-  for (const r of DB.routesByAirport.get(code) || []) {
-    const other = DB.airport.get(r.src === code ? r.dst : r.src);
-    if (!other || seen.has(other.iata)) continue;
-    seen.add(other.iata);
-    layers.push(L.polyline(greatCircle(a, other, 24), { color: accent, weight: 1, opacity: .35, interactive: false }));
-    layers.push(L.circleMarker([other.latN, other.lonN], { radius: 3, color: accent, weight: 1, fillOpacity: .7 })
+  const others = [...new Set((DB.routesByAirport.get(code) || []).map(r => r.src === code ? r.dst : r.src))]
+    .map(c => DB.airport.get(c)).filter(Boolean);
+  const geo = geoFrame([a, ...others]);
+  const layers = [pin(geo.ll(a), 'src', a.iata, 1000)];
+  for (const other of others) {
+    layers.push(L.polyline(geo.path([a, other], 24), { color: accent, weight: 1, opacity: .35, interactive: false }));
+    layers.push(L.circleMarker(geo.ll(other), { radius: 3, color: accent, weight: 1, fillOpacity: .7 })
       .bindPopup(`<b>${esc(other.iata)}</b> · ${esc(other.name)}<br><a href="#/lookup?type=airport&code=${esc(other.iata)}">${t('pop.details')}</a>`));
   }
-  const group = L.featureGroup(layers).addTo(map);
-  if (seen.size) map.fitBounds(group.getBounds(), { padding: [20, 20], maxZoom: 6 });
-  else map.setView([a.latN, a.lonN], 6);
+  L.featureGroup(layers).addTo(map);
+  if (others.length) map.fitBounds(L.latLngBounds([a, ...others].map(geo.ll)), { padding: [20, 20], maxZoom: 6 });
+  else map.setView(geo.ll(a), 6);
 }
 
 function renderReports(root, params) {
@@ -788,17 +831,20 @@ function renderOneHop(root, params) {
   if (mapEl && data) {
     const map = makeMap(mapEl);
     const warm = cssVar('--warm');
+    const geo = geoFrame([data.s, data.d, ...data.pairs.map(p => p.via)]);
     const layers = [];
     data.top.forEach((v, i) => {
       const w = 2 + 3 * (v.count / data.top[0].count);
-      layers.push(L.polyline(greatCircle(data.s, v.airport), { color: warm, weight: w, opacity: .8 }).bindTooltip(`${data.s.iata} → ${v.airport.iata}`));
-      layers.push(L.polyline(greatCircle(v.airport, data.d), { color: warm, weight: w, opacity: .8, dashArray: '6 6' }).bindTooltip(`${v.airport.iata} → ${data.d.iata}`));
-      layers.push(pin(v.airport, 'via', i + 1).bindPopup(`<b>#${i + 1} ${esc(v.airport.city)} (${esc(v.airport.iata)})</b><br>${t('pop.pairs', { n: v.count })}<br>${t('hop.miTotal', { mi: fmt(Math.round(v.total)) })}`));
+      layers.push(L.polyline(geo.path([data.s, v.airport]), { color: warm, weight: w, opacity: .8 }).bindTooltip(`${data.s.iata} → ${v.airport.iata}`));
+      layers.push(L.polyline(geo.path([v.airport, data.d]), { color: warm, weight: w, opacity: .8, dashArray: '6 6' }).bindTooltip(`${v.airport.iata} → ${data.d.iata}`));
+      layers.push(pin(geo.ll(v.airport), 'via', i + 1, 100 - i).bindPopup(`<b>#${i + 1} ${esc(v.airport.city)} (${esc(v.airport.iata)})</b><br>${t('pop.pairs', { n: v.count })}<br>${t('hop.miTotal', { mi: fmt(Math.round(v.total)) })}`));
     });
-    layers.push(pin(data.s, 'src', data.s.iata).bindPopup(`<b>${t('pop.source')}</b><br>${esc(data.s.name)}`));
-    layers.push(pin(data.d, 'dst', data.d.iata).bindPopup(`<b>${t('pop.dest')}</b><br>${esc(data.d.name)}`));
-    const group = L.featureGroup(layers).addTo(map);
-    map.fitBounds(group.getBounds(), { padding: [30, 30] });
+    // Source and destination sit above the connection pins so they are never hidden.
+    layers.push(pin(geo.ll(data.s), 'src', data.s.iata, 1000).bindPopup(`<b>${t('pop.source')}</b><br>${esc(data.s.name)}`));
+    layers.push(pin(geo.ll(data.d), 'dst', data.d.iata, 1000).bindPopup(`<b>${t('pop.dest')}</b><br>${esc(data.d.name)}`));
+    L.featureGroup(layers).addTo(map);
+    const baseBounds = L.latLngBounds([data.s, data.d, ...data.top.map(v => v.airport)].map(geo.ll));
+    map.fitBounds(baseBounds, { padding: [30, 30] });
 
     // Highlight one route pair (default: the shortest, row 1) when its table row is clicked.
     let hl = null;
@@ -808,15 +854,15 @@ function renderOneHop(root, params) {
       if (hl) hl.remove();
       const accent = cssVar('--accent');
       hl = L.featureGroup([
-        L.polyline([...greatCircle(data.s, p.via), ...greatCircle(p.via, data.d).slice(1)], { color: accent, weight: 5, opacity: .95 }),
-        L.circleMarker([p.via.latN, p.via.lonN], { radius: 7, color: '#fff', weight: 2, fillColor: accent, fillOpacity: 1 }),
+        L.polyline(geo.path([data.s, p.via, data.d]), { color: accent, weight: 5, opacity: .95 }),
+        L.circleMarker(geo.ll(p.via), { radius: 7, color: '#fff', weight: 2, fillColor: accent, fillOpacity: 1 }),
       ]).addTo(map);
       hl.bindTooltip(`#${i + 1}: ${data.s.iata} → ${p.via.iata} (${p.r1.airline}) → ${data.d.iata} (${p.r2.airline}) · ${fmt(Math.round(p.total))} ${t('unit.mi')}`,
-        { direction: 'top', offset: [0, -10] }).openTooltip([p.via.latN, p.via.lonN]);
+        { direction: 'top', offset: [0, -10] }).openTooltip(geo.ll(p.via));
       tbody.querySelectorAll('tr.selected').forEach(tr => tr.classList.remove('selected'));
       tbody.querySelector(`tr[data-i="${i}"]`)?.classList.add('selected');
       if (focusMap) {
-        map.fitBounds(L.featureGroup([group, hl]).getBounds(), { padding: [30, 30] });
+        map.fitBounds(L.latLngBounds([baseBounds.getSouthWest(), baseBounds.getNorthEast(), geo.ll(p.via)]), { padding: [30, 30] });
         const r = mapEl.getBoundingClientRect();
         if (r.bottom < 0 || r.top > innerHeight) mapEl.scrollIntoView({ behavior: 'smooth', block: 'center' });
       }

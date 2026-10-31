@@ -339,3 +339,5 @@ details.faq p { margin: .5rem 0 0; color: var(--muted); }
 
 /* Keep the footer below the fold while data loads, so it doesn't jump (layout shift). */
 @media screen { main { min-height: 100vh; } }
+/* Leave room under the footer for the fixed back-to-top button. */
+.footer { padding-bottom: 72px; }
