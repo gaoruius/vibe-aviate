@@ -148,7 +148,7 @@ function cleanup() {
 function makeMap(el, opts = {}) {
   // maxBounds keeps the view between the poles so no empty band shows above or below the tiles.
   const map = L.map(el, {
-    worldCopyJump: true, scrollWheelZoom: false, minZoom: 1,
+    worldCopyJump: true, scrollWheelZoom: false, minZoom: 1, zoomSnap: .25,
     maxBounds: [[-85, -720], [85, 720]], maxBoundsViscosity: 1, ...opts,
   });
   L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
@@ -468,24 +468,157 @@ function renderHome(root) {
       <div class="card"><h2>${t('home.chartAirlines')}</h2><div class="chart-box"><canvas id="c-airlines"></canvas></div></div>
       <div class="card"><h2>${t('home.chartAirports')}</h2><div class="chart-box"><canvas id="c-airports"></canvas></div></div>
     </div>
-    <div class="card" style="margin-top:1.25rem"><h2>${t('home.mapTitle')}</h2><p class="hint">${t('home.mapHint', { n: fmt(DB.airports.length) })}</p><div id="home-map" class="map"></div></div>`;
+    <div class="card" style="margin-top:1.25rem">
+      <h2>${t('home.mapTitle')}</h2>
+      <div class="chips map-filter" role="group" aria-label="${t('home.mapFilter')}">
+        <button type="button" class="chip active" data-airline="" aria-pressed="true">${t('home.mapAll')}</button>
+        ${[...DB.airlines].sort(byKey('iata')).map(a => `<button type="button" class="chip" data-airline="${esc(a.iata)}" aria-pressed="false"><i class="swatch" style="background:${AIRLINE_COLORS[a.iata] || 'var(--accent)'}"></i>${esc(a.iata)}</button>`).join('')}
+      </div>
+      <div class="chips map-region" role="group" aria-label="${t('region.label')}">
+        ${['world', 'na', 'eu', 'ap'].map(r => `<button type="button" class="chip${r === 'world' ? ' active' : ''}" data-region="${r}" aria-pressed="${r === 'world'}">${t('region.' + r)}</button>`).join('')}
+      </div>
+      <p class="hint" id="home-map-hint" aria-live="polite"></p>
+      <div id="home-map" class="map tall"></div>
+    </div>`;
 
   makeBarChart(root.querySelector('#c-airlines'), perAirline.map(x => `${x.a.iata} · ${x.a.name}`), perAirline.map(x => x.n), t('chart.routes'),
     i => { location.hash = `#/reports?type=airline&code=${perAirline[i].a.iata}`; });
   makeBarChart(root.querySelector('#c-airports'), busiest.map(x => `${x.k} · ${DB.airport.get(x.k)?.city ?? ''}`), busiest.map(x => x.n), t('chart.routes'),
     i => { location.hash = `#/reports?type=airport&code=${busiest[i].k}`; });
 
-  const map = makeMap(root.querySelector('#home-map'));
-  const accent = cssVar('--accent');
+  const net = homeNetworkMap(root.querySelector('#home-map'), root.querySelector('#home-map-hint'));
+  const toggleGroup = (sel, btn) => root.querySelectorAll(sel).forEach(b => {
+    b.classList.toggle('active', b === btn);
+    b.setAttribute('aria-pressed', String(b === btn));
+  });
+  root.querySelectorAll('.map-filter .chip').forEach(btn => btn.addEventListener('click', () => {
+    toggleGroup('.map-filter .chip', btn);
+    net.draw(btn.dataset.airline);
+  }));
+  root.querySelectorAll('.map-region .chip').forEach(btn => btn.addEventListener('click', () => {
+    toggleGroup('.map-region .chip', btn);
+    net.zoomTo(btn.dataset.region);
+  }));
+  net.draw('');
+  wireRecent(root);
+}
+
+// Rough boxes (original lon/lat) used by the region buttons on the home map.
+const REGIONS = {
+  na: ap => ap.lonN > -170 && ap.lonN < -50 && ap.latN > 7,
+  eu: ap => ap.lonN > -25 && ap.lonN < 45 && ap.latN > 34,
+  ap: ap => ap.lonN > 60 || ap.lonN < -170,
+};
+
+const AIRLINE_COLORS = { AA: '#2563eb', B6: '#0d9488', DL: '#dc2626', SB: '#16a34a', SY: '#db2777', UA: '#7c3aed', WN: '#f59e0b' };
+
+/**
+ * Home-page network map. draw('') shows every airport plus the routes flown by 2+ airlines;
+ * draw(code) shows one airline's network in its colour. The biggest hubs are labelled, and
+ * hovering (or tapping) an airport highlights all of its routes.
+ */
+function homeNetworkMap(el, hintEl) {
+  const map = makeMap(el);
   const geo = geoFrame(DB.airports);
   map.fitBounds(L.latLngBounds(DB.airports.map(geo.ll)), { padding: [10, 10] });
-  for (const ap of DB.airports) {
-    const n = (DB.routesByAirport.get(ap.iata) || []).length;
-    L.circleMarker(geo.ll(ap), { radius: 2 + Math.sqrt(n) / 2.2, color: accent, weight: 1, fillOpacity: .45 })
-      .bindPopup(`<b>${esc(ap.iata)}</b> · ${esc(ap.name)}<br>${esc(ap.city)}, ${esc(ap.country)}<br>${t('pop.routes', { n: fmt(n) })}<br><a href="#/lookup?type=airport&code=${esc(ap.iata)}">${t('pop.details')}</a>`)
-      .addTo(map);
+  const base = L.layerGroup().addTo(map);
+  const focus = L.layerGroup().addTo(map);
+  const labels = L.layerGroup().addTo(map);
+  let airline = '', pinned = false, region = 'world', ranked = [], max = 1;
+
+  const radius = n => 2.5 + 11 * Math.sqrt(n / max);
+
+  // Label the biggest airports that fit without overlapping; re-run on every zoom/pan.
+  function placeLabels() {
+    labels.clearLayers();
+    const size = map.getSize(), placed = [];
+    for (const { ap, n } of ranked.slice(0, 40)) {
+      const pt = map.latLngToContainerPoint(geo.ll(ap));
+      if (pt.x < 0 || pt.y < 0 || pt.x > size.x || pt.y > size.y) continue;
+      if (placed.some(q => Math.abs(q.x - pt.x) < 36 && Math.abs(q.y - pt.y) < 16)) continue;
+      placed.push(pt);
+      L.marker(geo.ll(ap), {
+        interactive: false, keyboard: false,
+        icon: L.divIcon({ className: 'hub-label', html: esc(ap.iata), iconSize: [36, 14], iconAnchor: [18, radius(n) + 14] }),
+      }).addTo(labels);
+    }
   }
-  wireRecent(root);
+  map.on('zoomend moveend', placeLabels);
+
+  function zoomTo(r) {
+    region = r;
+    const inRegion = ranked.filter(x => r === 'world' || REGIONS[r](x.ap));
+    const pts = (inRegion.length ? inRegion : ranked).map(x => geo.ll(x.ap));
+    if (pts.length) map.fitBounds(L.latLngBounds(pts), { padding: [20, 20], maxZoom: 6 });
+  }
+
+  const routesOf = iata => (DB.routesByAirport.get(iata) || []).filter(r => !airline || r.airline === airline);
+
+  function showRoutes(ap) {
+    focus.clearLayers();
+    const color = airline ? AIRLINE_COLORS[airline] : cssVar('--accent-strong');
+    const others = new Set(routesOf(ap.iata).map(r => (r.src === ap.iata ? r.dst : r.src)));
+    for (const code of others) {
+      const o = DB.airport.get(code);
+      if (!o) continue;
+      L.polyline(geo.path([ap, o], 32), { color, weight: 1.6, opacity: .85, interactive: false }).addTo(focus);
+      L.circleMarker(geo.ll(o), { radius: 3, color, weight: 1, fillColor: color, fillOpacity: 1, interactive: false }).addTo(focus);
+    }
+  }
+
+  function draw(code) {
+    airline = code;
+    pinned = false;
+    map.closePopup();
+    base.clearLayers();
+    focus.clearLayers();
+    const color = code ? AIRLINE_COLORS[code] : cssVar('--accent');
+    const routes = code ? DB.routesByAirline.get(code) || [] : DB.routes;
+
+    const perAirport = new Map(), pairs = new Map();
+    for (const r of routes) {
+      perAirport.set(r.src, (perAirport.get(r.src) || 0) + 1);
+      if (r.dst !== r.src) perAirport.set(r.dst, (perAirport.get(r.dst) || 0) + 1);
+      const key = [r.src, r.dst].sort().join('-');
+      if (!pairs.has(key)) pairs.set(key, new Set());
+      pairs.get(key).add(r.airline);
+    }
+
+    // Lines: the whole network for one airline; for all airlines only routes 2+ airlines compete on.
+    let lineCount = 0;
+    for (const [key, airlines] of pairs) {
+      if (!code && airlines.size < 2) continue;
+      const [a, b] = key.split('-').map(c => DB.airport.get(c));
+      if (!a || !b) continue;
+      lineCount++;
+      L.polyline(geo.path([a, b], 24), {
+        color, interactive: false,
+        weight: code ? 1 : .7 + .6 * (airlines.size - 1), opacity: code ? .3 : .3 + .15 * (airlines.size - 2),
+      }).addTo(base);
+    }
+
+    ranked = [...perAirport].map(([iata, n]) => ({ ap: DB.airport.get(iata), n })).filter(x => x.ap)
+      .sort((x, y) => y.n - x.n);
+    max = ranked[0]?.n || 1;
+    for (const { ap, n } of [...ranked].reverse()) { // small dots on top of big ones
+      const dot = L.circleMarker(geo.ll(ap), {
+        radius: radius(n), color, weight: 1, fillColor: color, fillOpacity: .45,
+      }).bindPopup(`<b>${esc(ap.iata)}</b> · ${esc(ap.name)}<br>${esc(ap.city)}, ${esc(ap.country)}<br>${t('pop.routes', { n: fmt(n) })}<br><a href="#/lookup?type=airport&code=${esc(ap.iata)}">${t('pop.details')}</a>`);
+      dot.on('mouseover', () => { if (!pinned) showRoutes(ap); });
+      dot.on('mouseout', () => { if (!pinned) focus.clearLayers(); });
+      dot.on('popupopen', () => { pinned = true; showRoutes(ap); });
+      dot.on('popupclose', () => { pinned = false; focus.clearLayers(); });
+      dot.addTo(base);
+    }
+
+    hintEl.textContent = code
+      ? t('home.mapHintAirline', { name: DB.airline.get(code)?.name || code, n: fmt(ranked.length), r: fmt(routes.length) })
+      : t('home.mapHint', { n: fmt(ranked.length), l: fmt(lineCount) });
+    zoomTo(region);
+    placeLabels();
+  }
+
+  return { draw, zoomTo };
 }
 
 function typeTabs(base, type, code) {

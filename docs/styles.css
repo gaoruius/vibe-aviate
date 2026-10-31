@@ -341,3 +341,14 @@ details.faq p { margin: .5rem 0 0; color: var(--muted); }
 @media screen { main { min-height: 100vh; } }
 /* Leave room under the footer for the fixed back-to-top button. */
 .footer { padding-bottom: 72px; }
+
+/* Home network map */
+.map.tall { height: 480px; }
+@media (max-width: 600px) { .map.tall { height: 380px; } }
+.map-filter { margin: 0 0 .5rem; }
+.map-filter .chip { display: inline-flex; align-items: center; gap: .35rem; font-weight: 600; color: var(--text); }
+.map-filter .chip.active { background: var(--accent-soft); border-color: var(--accent); color: var(--accent-strong); }
+.swatch { width: 10px; height: 10px; border-radius: 50%; display: inline-block; }
+.hub-label { font: 700 11px/14px Inter, sans-serif; color: var(--text); text-align: center; white-space: nowrap; pointer-events: none; text-shadow: 0 0 3px var(--surface), 0 0 3px var(--surface), 0 0 2px var(--surface); }
+.map-region { margin: 0 0 .5rem; }
+.map-region .chip.active { background: var(--surface); border-color: var(--text); color: var(--text); font-weight: 600; }
