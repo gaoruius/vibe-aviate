@@ -111,8 +111,24 @@ const regionNamer = {};
 const apName = ap => (LANG === 'zh' && NAMES[ap.iata]?.nameZh) || (LANG === 'es' && NAMES[ap.iata]?.nameEs) || ap.name;
 const apCity = ap => (LANG === 'zh' && NAMES[ap.iata]?.cityZh) || (LANG === 'es' && NAMES[ap.iata]?.cityEs) || ap.city;
 const alName = al => AIRLINE_NAMES[LANG]?.[al.iata] || al.name;
+// English country name → ISO code, from the browser's own region list (covers names the
+// Wikidata table missed, e.g. airports with no Wikidata match).
+let EN_REGIONS = null;
+function isoFromEnglish(name) {
+  if (!EN_REGIONS) {
+    EN_REGIONS = {};
+    try {
+      const en = new Intl.DisplayNames(['en'], { type: 'region' });
+      for (let a = 65; a <= 90; a++) for (let b = 65; b <= 90; b++) {
+        const code = String.fromCharCode(a, b);
+        try { const n = en.of(code); if (n && n !== code) EN_REGIONS[n] ??= code; } catch { /* not a region */ }
+      }
+    } catch { /* Intl.DisplayNames unavailable */ }
+  }
+  return EN_REGIONS[name];
+}
 function countryName(english) {
-  const iso = COUNTRY_ISO[english];
+  const iso = COUNTRY_ISO[english] || isoFromEnglish(english);
   if (LANG === 'en' || !iso) return english;
   try {
     regionNamer[LANG] ??= new Intl.DisplayNames([HTML_LANG[LANG]], { type: 'region' });
@@ -122,10 +138,32 @@ function countryName(english) {
 const apCountry = ap => countryName(ap.country);
 const apPlace = ap => `${apCity(ap)}${LANG === 'zh' ? '，' : ', '}${apCountry(ap)}`;
 
+// IANA time zone → its name in the current language, e.g. America/Los_Angeles → 北美太平洋时间.
+function tzName(tz) {
+  if (LANG === 'en' || isNull(tz)) return tz;
+  try {
+    return new Intl.DateTimeFormat(HTML_LANG[LANG], { timeZone: tz, timeZoneName: 'longGeneric' })
+      .formatToParts(new Date()).find(p => p.type === 'timeZoneName')?.value || tz;
+  } catch { return tz; }
+}
+
 // Field values shown in the current language (raw OpenFlights value otherwise).
 function localField(type, obj, k) {
-  if (type === 'airline') return k === 'name' ? alName(obj) : k === 'country' ? countryName(obj.country) : obj[k];
-  return k === 'name' ? apName(obj) : k === 'city' ? apCity(obj) : k === 'country' ? apCountry(obj) : obj[k];
+  if (type === 'airline') {
+    if (k === 'name') return alName(obj);
+    if (k === 'country') return countryName(obj.country);
+    if (k === 'active' && LANG !== 'en' && /^[YN]$/.test(obj.active)) return t(obj.active === 'Y' ? 'val.yes' : 'val.no');
+    return obj[k];
+  }
+  switch (k) {
+    case 'name': return apName(obj);
+    case 'city': return apCity(obj);
+    case 'country': return apCountry(obj);
+    case 'dst': return /^[EASOZNU]$/.test(obj.dst) ? t('dst.' + obj.dst) : obj.dst;
+    case 'tz': return tzName(obj.tz);
+    case 'type': return LANG !== 'en' && obj.type === 'airport' ? t('val.airport') : obj.type;
+    default: return obj[k];
+  }
 }
 // A cell/value that shows the translation, keeping the original OpenFlights value visible.
 function showLocal(type, obj, k) {
@@ -465,7 +503,14 @@ function resolveCode(type, input) {
                                    local(x).some(v => v && v.toLowerCase().includes(lq)))
     .sort((a, b) => (DB[type === 'airline' ? 'routesByAirline' : 'routesByAirport'].get(b.iata)?.length || 0) -
                     (DB[type === 'airline' ? 'routesByAirline' : 'routesByAirport'].get(a.iata)?.length || 0));
-  return matches.length === 1 ? { code: matches[0].iata } : { matches };
+  if (matches.length === 1) return { code: matches[0].iata };
+  // A query that is exactly one airport's city (in any language) picks that airport,
+  // e.g. "Boston" / "波士顿" → BOS rather than also listing Manchester-Boston (MHT).
+  if (type === 'airport') {
+    const exact = matches.filter(x => [x.city, NAMES[x.iata]?.cityZh, NAMES[x.iata]?.cityEs].some(v => v && v.toLowerCase() === lq));
+    if (exact.length === 1) return { code: exact[0].iata };
+  }
+  return { matches };
 }
 
 // role: '' | 'src' | 'dst' (which one-hop input the message is about)
@@ -771,7 +816,7 @@ function homeNetworkMap(el, hintEl) {
 
 function typeTabs(base, type, code) {
   const q = t => `#/${base}?type=${t}${code && t === type ? '&code=' + encodeURIComponent(code) : ''}`;
-  return `<nav class="tabs" aria-label="Entity type">
+  return `<nav class="tabs" aria-label="${t('aria.entityType')}">
     <a href="${q('airline')}" class="${type === 'airline' ? 'active' : ''}">${t('type.airline')}</a>
     <a href="${q('airport')}" class="${type === 'airport' ? 'active' : ''}">${t('type.airport')}</a>
   </nav>`;
@@ -997,7 +1042,7 @@ function renderDirectory(root, params) {
     : [...DB.airports].sort(byKey('iata'));
   root.innerHTML = `
     <div class="page-head"><h1>${t('dir.h1')}</h1><p>${t('dir.lead.' + type)}</p></div>
-    <nav class="tabs" aria-label="Entity type">
+    <nav class="tabs" aria-label="${t('aria.entityType')}">
       <a href="#/directory?type=airline" class="${type === 'airline' ? 'active' : ''}">${t('dir.tab.airline', { n: DB.airlines.length })}</a>
       <a href="#/directory?type=airport" class="${type === 'airport' ? 'active' : ''}">${t('dir.tab.airport', { n: DB.airports.length })}</a>
     </nav>
@@ -1085,9 +1130,9 @@ function renderOneHop(root, params) {
     <div class="page-head"><h1>${t('hop.title')}</h1><p>${t('hop.lead')}</p></div>
     <div class="card">
       <form class="form" id="hop-form">
-        <div class="field"><label for="src">${t('hop.from')}</label><input id="src" name="src" class="code" type="text" list="airport-codes" value="${esc(S)}" placeholder="e.g. SJC" maxlength="4" autocomplete="off" required></div>
+        <div class="field"><label for="src">${t('hop.from')}</label><input id="src" name="src" class="code" type="text" list="airport-codes" value="${esc(S)}" placeholder="${t('hop.phSrc')}" maxlength="60" autocomplete="off" required></div>
         <button class="btn ghost swap" type="button" id="swap" title="${t('hop.swap')}" aria-label="${t('hop.swap')}">⇄</button>
-        <div class="field"><label for="dst">${t('hop.to')}</label><input id="dst" name="dst" class="code" type="text" list="airport-codes" value="${esc(D)}" placeholder="e.g. BOS" maxlength="4" autocomplete="off" required></div>
+        <div class="field"><label for="dst">${t('hop.to')}</label><input id="dst" name="dst" class="code" type="text" list="airport-codes" value="${esc(D)}" placeholder="${t('hop.phDst')}" maxlength="60" autocomplete="off" required></div>
         <label class="check"><input type="checkbox" name="same" ${same ? 'checked' : ''}> ${t('hop.same')}</label>
         <button class="btn" type="submit">${t('hop.btn')}</button>
       </form>
@@ -1335,6 +1380,7 @@ function applyStaticText() {
   document.documentElement.lang = HTML_LANG[LANG];
   document.querySelectorAll('[data-i18n]').forEach(el => { el.textContent = t(el.dataset.i18n); });
   document.querySelectorAll('[data-i18n-html]').forEach(el => { el.innerHTML = t(el.dataset.i18nHtml); }); // our own markup only
+  document.querySelectorAll('[data-i18n-aria]').forEach(el => el.setAttribute('aria-label', t(el.dataset.i18nAria)));
   document.querySelectorAll('[data-i18n-label]').forEach(el => { el.setAttribute('aria-label', t(el.dataset.i18nLabel)); el.title = t(el.dataset.i18nLabel); });
   document.querySelector('.menu-toggle').setAttribute('aria-label', t('nav.menu'));
   const sel = document.querySelector('.lang-select');

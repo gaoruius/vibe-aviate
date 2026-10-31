@@ -4,7 +4,7 @@
  * - Map tiles: cached as you view them (capped), so maps you've seen work offline. */
 'use strict';
 
-const CORE = 'vibe-core-v3';
+const CORE = 'vibe-core-v4';
 const TILES = 'vibe-tiles-v1';
 const MAX_TILES = 600;
 const DATA = ['data/SB-airlines.txt', 'data/SB-airports.txt', 'data/SB-routes.txt', 'data/names-i18n.json', 'manifest.webmanifest', 'icons/icon-192.png',
