@@ -4,10 +4,10 @@
  * - Map tiles: cached as you view them (capped), so maps you've seen work offline. */
 'use strict';
 
-const CORE = 'vibe-core-v2';
+const CORE = 'vibe-core-v3';
 const TILES = 'vibe-tiles-v1';
 const MAX_TILES = 600;
-const DATA = ['data/SB-airlines.txt', 'data/SB-airports.txt', 'data/SB-routes.txt', 'manifest.webmanifest', 'icons/icon-192.png',
+const DATA = ['data/SB-airlines.txt', 'data/SB-airports.txt', 'data/SB-routes.txt', 'data/names-i18n.json', 'manifest.webmanifest', 'icons/icon-192.png',
   // Map library, loaded on demand by app.js (keep in sync with MAPLIBRE_SCRIPTS there).
   'https://cdnjs.cloudflare.com/ajax/libs/maplibre-gl/4.7.1/maplibre-gl.js',
   'https://cdn.jsdelivr.net/npm/@maplibre/maplibre-gl-leaflet@0.0.22/leaflet-maplibre-gl.js',

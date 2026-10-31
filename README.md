@@ -23,6 +23,7 @@ Extras:
 - Charts (Chart.js) — click a bar to drill into that airline or airport
 - Light / dark / system theme toggle, mobile layout, per-page titles, shareable URLs
 - Interface in English, Simplified Chinese and Spanish (`docs/i18n.js`; defaults to the browser language, choice is remembered). Data values stay in English as they appear in OpenFlights.
+- Airport, city and country names in Chinese / Spanish from Wikidata (`docs/data/names-i18n.json`, keyed by IATA; ~90% coverage, English fallback). The original OpenFlights value stays visible underneath and is what CSV export uses.
 - Installable PWA that works offline (`docs/sw.js`, `docs/manifest.webmanifest`)
 - Recent searches, keyboard shortcuts (`?` lists them), back-to-top button, print layout
 - Help / FAQ, Contact, Privacy and Changelog pages; a "not found" page for bad links (`docs/404.html`)

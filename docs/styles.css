@@ -352,3 +352,7 @@ details.faq p { margin: .5rem 0 0; color: var(--muted); }
 .hub-label { font: 700 11px/14px Inter, sans-serif; color: var(--text); text-align: center; white-space: nowrap; pointer-events: none; text-shadow: 0 0 3px var(--surface), 0 0 3px var(--surface), 0 0 2px var(--surface); }
 .map-region { margin: 0 0 .5rem; }
 .map-region .chip.active { background: var(--surface); border-color: var(--text); color: var(--text); font-weight: 600; }
+
+/* Translated names keep the original OpenFlights value underneath. */
+.orig { display: block; font-size: .78em; font-weight: 400; color: var(--muted); }
+td .orig { font-size: .75rem; }

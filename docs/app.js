@@ -56,6 +56,7 @@ const pushTo = (map, key, val) => { if (!map.has(key)) map.set(key, []); map.get
 
 async function loadData() {
   const files = ['SB-airlines.txt', 'SB-airports.txt', 'SB-routes.txt'];
+  const namesReq = fetch('data/names-i18n.json').then(r => (r.ok ? r.json() : {})).catch(() => ({}));
   const [al, ap, rt] = await Promise.all(files.map(async f => {
     const res = await fetch('data/' + f);
     if (!res.ok) throw new Error(t('err.fetch', { f, s: res.status }));
@@ -72,6 +73,8 @@ async function loadData() {
 
   DB.airlines.forEach(a => DB.airline.set(a.iata, a));
   DB.airports.forEach(a => DB.airport.set(a.iata, a));
+  NAMES = await namesReq;
+  for (const a of DB.airports) { const iso = NAMES[a.iata]?.iso; if (iso) COUNTRY_ISO[a.country] = iso; }
   for (const r of DB.routes) {
     pushTo(DB.routesByAirline, r.airline, r);
     pushTo(DB.routesByAirport, r.src, r);
@@ -82,10 +85,53 @@ async function loadData() {
     }
   }
 
+  fillSuggestions();
+}
+
+// Search suggestions under the code inputs, in the current language.
+function fillSuggestions() {
   document.getElementById('airline-codes').innerHTML =
-    [...DB.airlines].sort(byKey('iata')).map(a => `<option value="${esc(a.iata)}">${esc(a.name)}</option>`).join('');
+    [...DB.airlines].sort(byKey('iata')).map(a => `<option value="${esc(a.iata)}">${esc(alName(a))}</option>`).join('');
   document.getElementById('airport-codes').innerHTML =
-    [...DB.airports].sort(byKey('iata')).map(a => `<option value="${esc(a.iata)}">${esc(a.name)} — ${esc(a.city)}</option>`).join('');
+    [...DB.airports].sort(byKey('iata')).map(a => `<option value="${esc(a.iata)}">${esc(apName(a))} — ${esc(apCity(a))}</option>`).join('');
+}
+
+/* ---------------- Localised names ----------------
+ * OpenFlights data is English. Chinese / Spanish airport and city names come from Wikidata
+ * (data/names-i18n.json, keyed by IATA), country names from the browser's Intl.DisplayNames,
+ * airline names from the table below. Anything without a translation stays in English. */
+
+let NAMES = {};
+const COUNTRY_ISO = {};
+const AIRLINE_NAMES = {
+  zh: { AA: '美国航空', B6: '捷蓝航空', DL: '达美航空', SB: '天桥航空', SY: '太阳乡村航空', UA: '美国联合航空', WN: '西南航空' },
+  es: {},
+};
+const regionNamer = {};
+const apName = ap => (LANG === 'zh' && NAMES[ap.iata]?.nameZh) || (LANG === 'es' && NAMES[ap.iata]?.nameEs) || ap.name;
+const apCity = ap => (LANG === 'zh' && NAMES[ap.iata]?.cityZh) || (LANG === 'es' && NAMES[ap.iata]?.cityEs) || ap.city;
+const alName = al => AIRLINE_NAMES[LANG]?.[al.iata] || al.name;
+function countryName(english) {
+  const iso = COUNTRY_ISO[english];
+  if (LANG === 'en' || !iso) return english;
+  try {
+    regionNamer[LANG] ??= new Intl.DisplayNames([HTML_LANG[LANG]], { type: 'region' });
+    return regionNamer[LANG].of(iso) || english;
+  } catch { return english; }
+}
+const apCountry = ap => countryName(ap.country);
+const apPlace = ap => `${apCity(ap)}${LANG === 'zh' ? '，' : ', '}${apCountry(ap)}`;
+
+// Field values shown in the current language (raw OpenFlights value otherwise).
+function localField(type, obj, k) {
+  if (type === 'airline') return k === 'name' ? alName(obj) : k === 'country' ? countryName(obj.country) : obj[k];
+  return k === 'name' ? apName(obj) : k === 'city' ? apCity(obj) : k === 'country' ? apCountry(obj) : obj[k];
+}
+// A cell/value that shows the translation, keeping the original OpenFlights value visible.
+function showLocal(type, obj, k) {
+  const v = localField(type, obj, k);
+  if (v === obj[k]) return show(obj[k]);
+  return `${esc(v)}<span class="orig" title="OpenFlights">${esc(obj[k])}</span>`;
 }
 
 /* ---------------- Helpers ---------------- */
@@ -388,7 +434,8 @@ function wireTables(root) {
   root.querySelectorAll('[data-csv-for]').forEach(btn => btn.addEventListener('click', () => {
     const tbl = document.getElementById(btn.dataset.csvFor);
     const q = v => /[",\n]/.test(v) ? `"${v.replace(/"/g, '""')}"` : v;
-    const line = cells => [...cells].map(c => q(c.textContent.replace(/\s+/g, ' ').trim().replace(/^—$/, ''))).join(',');
+    // CSV keeps the original OpenFlights value where a translated one is shown.
+    const line = cells => [...cells].map(c => q((c.querySelector('.orig') || c).textContent.replace(/\s+/g, ' ').trim().replace(/^—$/, ''))).join(',');
     const lines = [line(tbl.tHead.rows[0].cells), ...[...tbl.tBodies[0].rows].filter(r => !r.hidden).map(r => line(r.cells))];
     const url = URL.createObjectURL(new Blob([lines.join('\n') + '\n'], { type: 'text/csv' }));
     const a = Object.assign(document.createElement('a'), { href: url, download: btn.dataset.file });
@@ -411,7 +458,11 @@ function resolveCode(type, input) {
   if (byIcao) return { code: byIcao.iata };
   const lq = q.toLowerCase();
   const fields = type === 'airline' ? ['name', 'alias', 'callsign', 'country'] : ['name', 'city', 'country'];
-  const matches = list.filter(x => fields.some(f => !isNull(x[f]) && x[f].toLowerCase().includes(lq)))
+  const local = x => (type === 'airline'
+    ? [AIRLINE_NAMES.zh[x.iata], countryName(x.country)]
+    : [NAMES[x.iata]?.nameZh, NAMES[x.iata]?.nameEs, NAMES[x.iata]?.cityZh, NAMES[x.iata]?.cityEs, countryName(x.country)]);
+  const matches = list.filter(x => fields.some(f => !isNull(x[f]) && x[f].toLowerCase().includes(lq)) ||
+                                   local(x).some(v => v && v.toLowerCase().includes(lq)))
     .sort((a, b) => (DB[type === 'airline' ? 'routesByAirline' : 'routesByAirport'].get(b.iata)?.length || 0) -
                     (DB[type === 'airline' ? 'routesByAirline' : 'routesByAirport'].get(a.iata)?.length || 0));
   return matches.length === 1 ? { code: matches[0].iata } : { matches };
@@ -426,17 +477,17 @@ function notFound(type, input, matches, hrefFor, role = '') {
   const shown = matches.slice(0, 16);
   return `<div class="msg">
     ${t('search.many', { n: fmt(matches.length), q: esc(input), role: r })}
-    <div class="chips">${shown.map(m => `<a class="chip pick" href="${hrefFor(m.iata)}"><b>${esc(m.iata)}</b> ${esc(type === 'airline' ? m.name : `${m.city} · ${m.name}`)}</a>`).join('')}
+    <div class="chips">${shown.map(m => `<a class="chip pick" href="${hrefFor(m.iata)}"><b>${esc(m.iata)}</b> ${esc(type === 'airline' ? alName(m) : `${apCity(m)} · ${apName(m)}`)}</a>`).join('')}
     ${matches.length > shown.length ? `<span class="chip">${t('search.more', { n: fmt(matches.length - shown.length) })}</span>` : ''}</div>
   </div>`;
 }
 
 const airlineCols = () => AIRLINE_FIELDS.map(([k, key]) => ({
-  label: t(key), render: a => k === 'iata' ? codeLink('airline', a.iata) : show(a[k]),
+  label: t(key), render: a => k === 'iata' ? codeLink('airline', a.iata) : showLocal('airline', a, k),
 }));
 const airportCols = () => AIRPORT_FIELDS.map(([k, key]) => ({
   label: t(key), num: ['id', 'lat', 'lon', 'alt'].includes(k),
-  render: a => k === 'iata' ? codeLink('airport', a.iata) : show(a[k]),
+  render: a => k === 'iata' ? codeLink('airport', a.iata) : showLocal('airport', a, k),
 }));
 const rankCol = { label: '#', num: true, render: (_, i) => i + 1 };
 
@@ -569,7 +620,7 @@ function renderHome(root) {
       <h2>${t('home.mapTitle')}</h2>
       <div class="chips map-filter" role="group" aria-label="${t('home.mapFilter')}">
         <button type="button" class="chip active" data-airline="" aria-pressed="true">${t('home.mapAll')}</button>
-        ${[...DB.airlines].sort(byKey('iata')).map(a => `<button type="button" class="chip" data-airline="${esc(a.iata)}" aria-pressed="false"><i class="swatch" style="background:${AIRLINE_COLORS[a.iata] || 'var(--accent)'}"></i>${esc(a.iata)}</button>`).join('')}
+        ${[...DB.airlines].sort(byKey('iata')).map(a => `<button type="button" class="chip" data-airline="${esc(a.iata)}" aria-pressed="false" title="${esc(alName(a))}"><i class="swatch" style="background:${AIRLINE_COLORS[a.iata] || 'var(--accent)'}"></i>${esc(a.iata)}</button>`).join('')}
       </div>
       <div class="chips map-region" role="group" aria-label="${t('region.label')}">
         ${['world', 'na', 'eu', 'ap'].map(r => `<button type="button" class="chip${r === 'world' ? ' active' : ''}" data-region="${r}" aria-pressed="${r === 'world'}">${t('region.' + r)}</button>`).join('')}
@@ -578,9 +629,9 @@ function renderHome(root) {
       <div id="home-map" class="map tall"></div>
     </div>`;
 
-  makeBarChart(root.querySelector('#c-airlines'), perAirline.map(x => `${x.a.iata} · ${x.a.name}`), perAirline.map(x => x.n), t('chart.routes'),
+  makeBarChart(root.querySelector('#c-airlines'), perAirline.map(x => `${x.a.iata} · ${alName(x.a)}`), perAirline.map(x => x.n), t('chart.routes'),
     i => { location.hash = `#/reports?type=airline&code=${perAirline[i].a.iata}`; });
-  makeBarChart(root.querySelector('#c-airports'), busiest.map(x => `${x.k} · ${DB.airport.get(x.k)?.city ?? ''}`), busiest.map(x => x.n), t('chart.routes'),
+  makeBarChart(root.querySelector('#c-airports'), busiest.map(x => `${x.k} · ${DB.airport.get(x.k) ? apCity(DB.airport.get(x.k)) : ''}`), busiest.map(x => x.n), t('chart.routes'),
     i => { location.hash = `#/reports?type=airport&code=${busiest[i].k}`; });
 
   const net = homeNetworkMap(root.querySelector('#home-map'), root.querySelector('#home-map-hint'));
@@ -700,7 +751,7 @@ function homeNetworkMap(el, hintEl) {
     for (const { ap, n } of [...ranked].reverse()) { // small dots on top of big ones
       const dot = L.circleMarker(geo.ll(ap), {
         radius: radius(n), color, weight: 1, fillColor: color, fillOpacity: .45,
-      }).bindPopup(`<b>${esc(ap.iata)}</b> · ${esc(ap.name)}<br>${esc(ap.city)}, ${esc(ap.country)}<br>${t('pop.routes', { n: fmt(n) })}<br><a href="#/lookup?type=airport&code=${esc(ap.iata)}">${t('pop.details')}</a>`);
+      }).bindPopup(`<b>${esc(ap.iata)}</b> · ${esc(apName(ap))}<br>${esc(apPlace(ap))}<br>${t('pop.routes', { n: fmt(n) })}<br><a href="#/lookup?type=airport&code=${esc(ap.iata)}">${t('pop.details')}</a>`);
       dot.on('mouseover', () => { if (!pinned) showRoutes(ap); });
       dot.on('mouseout', () => { if (!pinned) focus.clearLayers(); });
       dot.on('popupopen', () => { pinned = true; showRoutes(ap); });
@@ -709,7 +760,7 @@ function homeNetworkMap(el, hintEl) {
     }
 
     hintEl.textContent = code
-      ? t('home.mapHintAirline', { name: DB.airline.get(code)?.name || code, n: fmt(ranked.length), r: fmt(routes.length) })
+      ? t('home.mapHintAirline', { name: DB.airline.get(code) ? alName(DB.airline.get(code)) : code, n: fmt(ranked.length), r: fmt(routes.length) })
       : t('home.mapHint', { n: fmt(ranked.length), l: fmt(lineCount) });
     zoomTo(region);
     placeLabels();
@@ -764,8 +815,8 @@ function resolveParam(base, type, input) {
   return { html: notFound(type, input, r.matches, c => `#/${base}?type=${type}&code=${c}`) };
 }
 
-function kv(fields, obj) {
-  return `<dl class="kv">${fields.map(([k, label]) => `<div><dt>${esc(t(label))}</dt><dd>${show(obj[k])}</dd></div>`).join('')}</dl>`;
+function kv(type, fields, obj) {
+  return `<dl class="kv">${fields.map(([k, label]) => `<div><dt>${esc(t(label))}</dt><dd>${showLocal(type, obj, k)}</dd></div>`).join('')}</dl>`;
 }
 
 function renderLookup(root, params) {
@@ -775,7 +826,7 @@ function renderLookup(root, params) {
   if (res.redirect) return;
   const code = res.code || '';
   let result = res.html || '';
-  setTitle(code ? `${code} · ${type === 'airline' ? DB.airline.get(code).name : DB.airport.get(code).name}` : t('lookup.title'));
+  setTitle(code ? `${code} · ${type === 'airline' ? alName(DB.airline.get(code)) : apName(DB.airport.get(code))}` : t('lookup.title'));
   if (code) addRecent({ hash: `#/lookup?type=${type}&code=${code}`, kind: 'lookup', a: code });
 
   if (code && type === 'airline') {
@@ -785,8 +836,8 @@ function renderLookup(root, params) {
       const airports = airlineRouteReport(code).length;
       result = `
         <div class="card">
-          <div class="entity-head"><span class="badge">${esc(a.iata)}</span><div><h2>${esc(a.name)}</h2><div class="sub">${t('lookup.airlineSub', { place: esc(a.country), n: AIRLINE_FIELDS.length })}</div></div></div>
-          ${kv(AIRLINE_FIELDS, a)}
+          <div class="entity-head"><span class="badge">${esc(a.iata)}</span><div><h2>${esc(alName(a))}</h2><div class="sub">${t('lookup.airlineSub', { place: esc(countryName(a.country)), n: AIRLINE_FIELDS.length })}</div></div></div>
+          ${kv('airline', AIRLINE_FIELDS, a)}
         </div>
         <div class="stats">
           <div class="stat"><div class="num">${fmt(routes.length)}</div><div class="lbl">${t('lookup.routesFlown')}</div></div>
@@ -804,8 +855,8 @@ function renderLookup(root, params) {
       result = `
         <div class="grid grid-2">
           <div class="card">
-            <div class="entity-head"><span class="badge">${esc(a.iata)}</span><div><h2>${esc(a.name)}</h2><div class="sub">${t('lookup.airportSub', { place: `${esc(a.city)}, ${esc(a.country)}`, n: AIRPORT_FIELDS.length })}</div></div></div>
-            ${kv(AIRPORT_FIELDS, a)}
+            <div class="entity-head"><span class="badge">${esc(a.iata)}</span><div><h2>${esc(apName(a))}</h2><div class="sub">${t('lookup.airportSub', { place: esc(apPlace(a)), n: AIRPORT_FIELDS.length })}</div></div></div>
+            ${kv('airport', AIRPORT_FIELDS, a)}
           </div>
           <div class="card">
             <h3>${t('lookup.connections')}</h3>
@@ -851,7 +902,7 @@ function airlineNetworkMap(el, code) {
   const max = rows[0]?.routeCount || 1;
   const dots = rows.map(r =>
     L.circleMarker(geo.ll(r), { radius: 3 + 9 * Math.sqrt(r.routeCount / max), color: accent, weight: 1, fillOpacity: .6 })
-      .bindPopup(`<b>${esc(r.iata)}</b> · ${esc(r.name)}<br>${t('pop.airlineRoutes', { n: r.routeCount, code: esc(code) })}<br><a href="#/lookup?type=airport&code=${esc(r.iata)}">${t('pop.airportDetails')}</a>`));
+      .bindPopup(`<b>${esc(r.iata)}</b> · ${esc(apName(r))}<br>${t('pop.airlineRoutes', { n: r.routeCount, code: esc(code) })}<br><a href="#/lookup?type=airport&code=${esc(r.iata)}">${t('pop.airportDetails')}</a>`));
   const group = L.featureGroup(dots).addTo(map);
   map.fitBounds(group.getBounds(), { padding: [20, 20], maxZoom: 6 });
 }
@@ -868,7 +919,7 @@ function airportNetworkMap(el, code) {
   for (const other of others) {
     layers.push(L.polyline(geo.path([a, other], 24), { color: accent, weight: 1, opacity: .35, interactive: false }));
     layers.push(L.circleMarker(geo.ll(other), { radius: 3, color: accent, weight: 1, fillOpacity: .7 })
-      .bindPopup(`<b>${esc(other.iata)}</b> · ${esc(other.name)}<br><a href="#/lookup?type=airport&code=${esc(other.iata)}">${t('pop.details')}</a>`));
+      .bindPopup(`<b>${esc(other.iata)}</b> · ${esc(apName(other))}<br><a href="#/lookup?type=airport&code=${esc(other.iata)}">${t('pop.details')}</a>`));
   }
   L.featureGroup(layers).addTo(map);
   if (others.length) map.fitBounds(L.latLngBounds([a, ...others].map(geo.ll)), { padding: [20, 20], maxZoom: 6 });
@@ -893,14 +944,14 @@ function renderReports(root, params) {
       const max = rows[0]?.routeCount || 1;
       result = `
         <div class="card">
-          <div class="entity-head"><span class="badge">${esc(a.iata)}</span><div><h2>${esc(a.name)}</h2>
+          <div class="entity-head"><span class="badge">${esc(a.iata)}</span><div><h2>${esc(alName(a))}</h2>
             <div class="sub">${t('reports.airlineSub', { n: fmt(rows.length), r: fmt((DB.routesByAirline.get(code) || []).length) })}</div></div></div>
           ${table([rankCol,
             { label: t('col.routes'), num: true, hl: true, render: r => `<span class="bar" style="width:${Math.max(4, 60 * r.routeCount / max)}px"></span>${r.routeCount}` },
             ...airportCols()], rows, { filter: true, id: 't-report', csv: `${code}-airports-by-routes.csv` })}
         </div>`;
       const top = rows.slice(0, 15);
-      chartData = { labels: top.map(r => `${r.iata} · ${r.city}`), values: top.map(r => r.routeCount), title: t('reports.topAirports', { name: a.name }),
+      chartData = { labels: top.map(r => `${r.iata} · ${apCity(r)}`), values: top.map(r => r.routeCount), title: t('reports.topAirports', { name: alName(a) }),
         go: i => `#/lookup?type=airport&code=${top[i].iata}` };
     }
   } else if (code) {
@@ -910,13 +961,13 @@ function renderReports(root, params) {
       const max = rows[0]?.routeCount || 1;
       result = `
         <div class="card">
-          <div class="entity-head"><span class="badge">${esc(a.iata)}</span><div><h2>${esc(a.name)}</h2>
-            <div class="sub">${t('reports.airportSub', { place: `${esc(a.city)}, ${esc(a.country)}`, n: fmt(rows.length) })}</div></div></div>
+          <div class="entity-head"><span class="badge">${esc(a.iata)}</span><div><h2>${esc(apName(a))}</h2>
+            <div class="sub">${t('reports.airportSub', { place: esc(apPlace(a)), n: fmt(rows.length) })}</div></div></div>
           ${table([rankCol,
             { label: t('col.routes'), num: true, hl: true, render: r => `<span class="bar" style="width:${Math.max(4, 60 * r.routeCount / max)}px"></span>${r.routeCount}` },
             ...airlineCols()], rows, { id: 't-report', csv: `${code}-airlines-by-routes.csv` })}
         </div>`;
-      chartData = { labels: rows.map(r => `${r.iata} · ${r.name}`), values: rows.map(r => r.routeCount), title: t('reports.airlinesAt', { code: a.iata }),
+      chartData = { labels: rows.map(r => `${r.iata} · ${DB.airline.get(r.iata) ? alName(DB.airline.get(r.iata)) : r.name}`), values: rows.map(r => r.routeCount), title: t('reports.airlinesAt', { code: a.iata }),
         go: i => `#/reports?type=airline&code=${rows[i].iata}` };
     }
   }
@@ -987,7 +1038,7 @@ function renderOneHop(root, params) {
       if (!data.pairs.length) {
         result = `${directNote}<div class="msg error" style="margin-top:1rem">${t(same ? 'hop.noneSame' : 'hop.none')}</div>`;
       } else {
-        const airlineName = c => DB.airline.get(c)?.name || c;
+        const airlineName = c => (DB.airline.get(c) ? alName(DB.airline.get(c)) : c);
         result = `
           <div class="stats">
             <div class="stat"><div class="num">${fmt(data.pairs.length)}</div><div class="lbl">${t('hop.pairs')}</div></div>
@@ -1002,7 +1053,7 @@ function renderOneHop(root, params) {
               <p style="color:var(--muted);margin:0 0 .75rem;font-size:.9rem">${t('hop.top5Hint')}</p>
               <ol class="top-list">${data.top.map((v, i) => `
                 <li><span class="rank">${i + 1}</span>
-                  <div class="grow"><b>${esc(v.airport.city)}</b> ${codeLink('airport', v.airport.iata)}<small>${esc(v.airport.name)} · ${t('hop.miTotal', { mi: fmt(Math.round(v.total)) })}</small></div>
+                  <div class="grow"><b>${esc(apCity(v.airport))}</b> ${codeLink('airport', v.airport.iata)}<small>${esc(apName(v.airport))} · ${t('hop.miTotal', { mi: fmt(Math.round(v.total)) })}</small></div>
                   <b>${v.count}</b>&nbsp;<span style="color:var(--muted);font-size:.8rem">${t('hop.routesWord')}</span></li>`).join('')}
               </ol>
             </div>
@@ -1016,7 +1067,7 @@ function renderOneHop(root, params) {
             <p class="hint">${t('hop.clickRow')}</p>
             ${table([
               rankCol,
-              { label: t('col.via'), render: p => `${codeLink('airport', p.via.iata)} ${esc(p.via.city)}` },
+              { label: t('col.via'), render: p => `${codeLink('airport', p.via.iata)} ${esc(apCity(p.via))}` },
               { label: t('col.leg1', { s: S }), render: p => `${codeLink('airline', p.r1.airline)} ${esc(airlineName(p.r1.airline))}${p.r1.codeshare === 'Y' ? ` <span class="null">${t('codeshare')}</span>` : ''}` },
               { label: t('col.leg1mi'), num: true, render: p => fmt(Math.round(p.leg1)) },
               { label: t('col.leg2', { d: D }), render: p => `${codeLink('airline', p.r2.airline)} ${esc(airlineName(p.r2.airline))}${p.r2.codeshare === 'Y' ? ` <span class="null">${t('codeshare')}</span>` : ''}` },
@@ -1067,11 +1118,11 @@ function renderOneHop(root, params) {
       const w = 2 + 3 * (v.count / data.top[0].count);
       layers.push(L.polyline(geo.path([data.s, v.airport]), { color: warm, weight: w, opacity: .8 }).bindTooltip(`${data.s.iata} → ${v.airport.iata}`));
       layers.push(L.polyline(geo.path([v.airport, data.d]), { color: warm, weight: w, opacity: .8, dashArray: '6 6' }).bindTooltip(`${v.airport.iata} → ${data.d.iata}`));
-      layers.push(pin(geo.ll(v.airport), 'via', i + 1, 100 - i).bindPopup(`<b>#${i + 1} ${esc(v.airport.city)} (${esc(v.airport.iata)})</b><br>${t('pop.pairs', { n: v.count })}<br>${t('hop.miTotal', { mi: fmt(Math.round(v.total)) })}`));
+      layers.push(pin(geo.ll(v.airport), 'via', i + 1, 100 - i).bindPopup(`<b>#${i + 1} ${esc(apCity(v.airport))} (${esc(v.airport.iata)})</b><br>${t('pop.pairs', { n: v.count })}<br>${t('hop.miTotal', { mi: fmt(Math.round(v.total)) })}`));
     });
     // Source and destination sit above the connection pins so they are never hidden.
-    layers.push(pin(geo.ll(data.s), 'src', data.s.iata, 1000).bindPopup(`<b>${t('pop.source')}</b><br>${esc(data.s.name)}`));
-    layers.push(pin(geo.ll(data.d), 'dst', data.d.iata, 1000).bindPopup(`<b>${t('pop.dest')}</b><br>${esc(data.d.name)}`));
+    layers.push(pin(geo.ll(data.s), 'src', data.s.iata, 1000).bindPopup(`<b>${t('pop.source')}</b><br>${esc(apName(data.s))}`));
+    layers.push(pin(geo.ll(data.d), 'dst', data.d.iata, 1000).bindPopup(`<b>${t('pop.dest')}</b><br>${esc(apName(data.d))}`));
     L.featureGroup(layers).addTo(map);
     const baseBounds = L.latLngBounds([data.s, data.d, ...data.top.map(v => v.airport)].map(geo.ll));
     map.fitBounds(baseBounds, { padding: [30, 30] });
@@ -1137,7 +1188,7 @@ function renderAbout(root) {
           <li>${t('about.d1', { a: fmt(DB.airlines.length), p: fmt(DB.airports.length), r: fmt(DB.routes.length) })}</li>
           <li>${t('about.d2')}</li>
           <li>${t('about.d3', { n: DB.routes.filter(r => r.stops !== '0').length })}</li>
-          ${li(['about.d4', 'about.d5', 'about.d6'])}
+          ${li(['about.d4', 'about.d5', 'about.d6', 'about.d7'])}
         </ul>
       </div>
     </div>`;
@@ -1199,7 +1250,7 @@ function renderPrivacy(root) {
 }
 
 const CHANGELOG = [
-  { v: '1.4', date: '2026-10-30', items: ['cl.14a', 'cl.14b', 'cl.14c'] },
+  { v: '1.4', date: '2026-10-30', items: ['cl.14a', 'cl.14b', 'cl.14c', 'cl.14d'] },
   { v: '1.3', date: '2026-10-30', items: ['cl.13a', 'cl.13b', 'cl.13c'] },
   { v: '1.2', date: '2026-10-30', items: ['cl.12a'] },
   { v: '1.1', date: '2026-10-30', items: ['cl.11a', 'cl.11b', 'cl.11c'] },
@@ -1295,7 +1346,7 @@ document.querySelector('.lang-select').addEventListener('change', e => {
   LANG = e.target.value;
   try { localStorage.setItem('lang', LANG); } catch { /* storage unavailable: language lasts this visit */ }
   applyStaticText();
-  if (DB.routes.length) route();
+  if (DB.routes.length) { fillSuggestions(); route(); }
 });
 applyStaticText();
 
