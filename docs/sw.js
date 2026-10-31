@@ -4,10 +4,14 @@
  * - Map tiles: cached as you view them (capped), so maps you've seen work offline. */
 'use strict';
 
-const CORE = 'vibe-core-v1';
+const CORE = 'vibe-core-v2';
 const TILES = 'vibe-tiles-v1';
-const MAX_TILES = 400;
-const DATA = ['data/SB-airlines.txt', 'data/SB-airports.txt', 'data/SB-routes.txt', 'manifest.webmanifest', 'icons/icon-192.png'];
+const MAX_TILES = 600;
+const DATA = ['data/SB-airlines.txt', 'data/SB-airports.txt', 'data/SB-routes.txt', 'manifest.webmanifest', 'icons/icon-192.png',
+  // Map library, loaded on demand by app.js (keep in sync with MAPLIBRE_SCRIPTS there).
+  'https://cdnjs.cloudflare.com/ajax/libs/maplibre-gl/4.7.1/maplibre-gl.js',
+  'https://cdn.jsdelivr.net/npm/@maplibre/maplibre-gl-leaflet@0.0.22/leaflet-maplibre-gl.js',
+  'https://tiles.openfreemap.org/styles/positron'];
 
 self.addEventListener('install', event => {
   event.waitUntil((async () => {
@@ -40,9 +44,9 @@ self.addEventListener('fetch', event => {
   const url = new URL(req.url);
   if (req.mode === 'navigate') {
     event.respondWith(networkFirst(req));
-  } else if (url.hostname === 'tile.openstreetmap.org') {
+  } else if (url.hostname === 'tile.openstreetmap.org' || url.hostname === 'tiles.openfreemap.org') {
     event.respondWith(cacheFirstTile(req));
-  } else if (url.origin === self.location.origin || url.hostname === 'cdnjs.cloudflare.com' ||
+  } else if (url.origin === self.location.origin || url.hostname === 'cdnjs.cloudflare.com' || url.hostname === 'cdn.jsdelivr.net' ||
              url.hostname === 'fonts.googleapis.com' || url.hostname === 'fonts.gstatic.com') {
     event.respondWith(staleWhileRevalidate(req, event));
   }

@@ -140,7 +140,13 @@ function setTitle(s) { document.title = s ? `${s} · VibeAviate` : t('title.defa
 function cssVar(name) { return getComputedStyle(document.documentElement).getPropertyValue(name).trim(); }
 
 function cleanup() {
-  if (activeMap) { activeMap.remove(); activeMap = null; }
+  if (activeMap) {
+    // Finish any zoom animation first: Leaflet's delayed transition-end handler would
+    // otherwise run after the map is removed and throw.
+    if (activeMap._animatingZoom) activeMap._onZoomTransitionEnd();
+    activeMap.remove();
+    activeMap = null;
+  }
   activeCharts.forEach(c => c.destroy());
   activeCharts = [];
 }
@@ -148,13 +154,12 @@ function cleanup() {
 function makeMap(el, opts = {}) {
   // maxBounds keeps the view between the poles so no empty band shows above or below the tiles.
   const map = L.map(el, {
-    worldCopyJump: true, scrollWheelZoom: false, minZoom: 1, zoomSnap: .25,
+    worldCopyJump: true, scrollWheelZoom: false, minZoom: 1, zoomSnap: .25, zoomControl: false,
     maxBounds: [[-85, -720], [85, 720]], maxBoundsViscosity: 1, ...opts,
   });
-  L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
-    maxZoom: 18,
-    attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
-  }).addTo(map);
+  L.control.zoom({ zoomInTitle: t('map.zoomIn'), zoomOutTitle: t('map.zoomOut') }).addTo(map);
+  map.attributionControl.setPrefix('<a href="https://leafletjs.com">Leaflet</a>');
+  addBaseMap(map);
   enablePinchZoom(map, el);
   activeMap = map;
   return map;
@@ -165,6 +170,66 @@ function makeMap(el, opts = {}) {
  * still scrolls the page. Chrome/Firefox/Edge report a pinch as a wheel event with ctrlKey
  * (so Ctrl + mouse wheel works too); Safari sends its own gesture events.
  */
+// Vector base map whose place names follow the site language (OpenFreeMap tiles, drawn by
+// MapLibre). Falls back to standard OpenStreetMap raster tiles if MapLibre or WebGL is missing.
+const BASEMAP_STYLE = 'https://tiles.openfreemap.org/styles/positron';
+const LABEL_FIELDS = { en: ['name:en'], zh: ['name:zh-Hans', 'name:zh'], es: ['name:es'] };
+
+// MapLibre (~800 KB) is only fetched when the first map scrolls into view, so it never
+// slows down the first paint of a page.
+const MAPLIBRE_SCRIPTS = [
+  'https://cdnjs.cloudflare.com/ajax/libs/maplibre-gl/4.7.1/maplibre-gl.js',
+  'https://cdn.jsdelivr.net/npm/@maplibre/maplibre-gl-leaflet@0.0.22/leaflet-maplibre-gl.js',
+];
+let maplibreReady = null;
+function loadMapLibre() {
+  maplibreReady ??= MAPLIBRE_SCRIPTS.reduce((prev, src) => prev.then(() => new Promise((resolve, reject) => {
+    const tag = Object.assign(document.createElement('script'), { src, onload: resolve, onerror: reject });
+    document.head.append(tag);
+  })), Promise.resolve());
+  return maplibreReady;
+}
+
+function addBaseMap(map) {
+  const osm = `© <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>`;
+  let removed = false;
+  map.on('unload', () => { removed = true; });
+  const raster = () => {
+    if (removed) return;
+    L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 18, attribution: t('map.attrOsm', { osm }) }).addTo(map);
+  };
+  const hasWebGL = (() => { try { return !!document.createElement('canvas').getContext('webgl2'); } catch { return false; } })();
+  if (!hasWebGL) { raster(); return; }
+
+  const vector = () => {
+    if (removed) return;
+    try {
+      const layer = L.maplibreGL({
+        style: BASEMAP_STYLE,
+        attribution: t('map.attr', { ofm: '<a href="https://openfreemap.org">OpenFreeMap</a>', omt: '<a href="https://www.openmaptiles.org/">OpenMapTiles</a>', osm }),
+      }).addTo(map);
+      const gl = layer.getMaplibreMap();
+      const field = ['coalesce', ...LABEL_FIELDS[LANG].map(f => ['get', f]), ['get', 'name:latin'], ['get', 'name']];
+      gl.once('style.load', () => {
+        for (const l of gl.getStyle().layers) {
+          if (l.layout && l.layout['text-field'] && !/highway|road|path|minor/.test(l.id)) gl.setLayoutProperty(l.id, 'text-field', field);
+        }
+      });
+    } catch {
+      raster();
+    }
+  };
+
+  // The MapLibre layer also needs the map to have a view (pages call fitBounds after makeMap).
+  const io = new IntersectionObserver(entries => {
+    if (!entries.some(e => e.isIntersecting)) return;
+    io.disconnect();
+    loadMapLibre().then(() => map.whenReady(vector), raster);
+  }, { rootMargin: '200px' });
+  io.observe(map.getContainer());
+  map.on('unload', () => io.disconnect());
+}
+
 function enablePinchZoom(map, el) {
   let pending = 0, frame = 0, at = null;
   el.addEventListener('wheel', e => {
@@ -1134,6 +1199,7 @@ function renderPrivacy(root) {
 }
 
 const CHANGELOG = [
+  { v: '1.4', date: '2026-10-30', items: ['cl.14a', 'cl.14b', 'cl.14c'] },
   { v: '1.3', date: '2026-10-30', items: ['cl.13a', 'cl.13b', 'cl.13c'] },
   { v: '1.2', date: '2026-10-30', items: ['cl.12a'] },
   { v: '1.1', date: '2026-10-30', items: ['cl.11a', 'cl.11b', 'cl.11c'] },
