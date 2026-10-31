@@ -155,8 +155,40 @@ function makeMap(el, opts = {}) {
     maxZoom: 18,
     attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
   }).addTo(map);
+  enablePinchZoom(map, el);
   activeMap = map;
   return map;
+}
+
+/**
+ * Trackpad pinch zooms the map instead of the whole page, while a plain two-finger scroll
+ * still scrolls the page. Chrome/Firefox/Edge report a pinch as a wheel event with ctrlKey
+ * (so Ctrl + mouse wheel works too); Safari sends its own gesture events.
+ */
+function enablePinchZoom(map, el) {
+  let pending = 0, frame = 0, at = null;
+  el.addEventListener('wheel', e => {
+    if (!e.ctrlKey) return;
+    e.preventDefault();
+    pending -= e.deltaY * (e.deltaMode === 1 ? 0.05 : 0.01);
+    at = map.mouseEventToContainerPoint(e);
+    if (!frame) frame = setTimeout(() => { // batch a burst of wheel events (~1 frame)
+      frame = 0;
+      const steps = Math.trunc(pending / 0.25); // zoomSnap is .25
+      if (!steps) return;
+      pending -= steps * 0.25;
+      map.setZoomAround(at, map.getZoom() + steps * 0.25, { animate: false });
+    }, 16);
+  }, { passive: false });
+
+  let startZoom = 0;
+  el.addEventListener('gesturestart', e => { e.preventDefault(); startZoom = map.getZoom(); });
+  el.addEventListener('gesturechange', e => {
+    e.preventDefault();
+    const z = Math.round((startZoom + Math.log2(e.scale)) * 4) / 4;
+    if (z !== map.getZoom()) map.setZoomAround(map.mouseEventToContainerPoint(e), z, { animate: false });
+  });
+  el.addEventListener('gestureend', e => e.preventDefault());
 }
 
 function pin(latlng, cls, label, zIndexOffset = 0) {
@@ -1052,6 +1084,7 @@ function shortcutsList() {
     ${row('<kbd>/</kbd>', t('kb.search'))}
     ${row('<kbd>?</kbd>', t('kb.help'))}
     ${row('<kbd>t</kbd>', t('kb.theme'))}
+    ${row('<kbd>Ctrl</kbd> + 🖱', t('kb.mapZoom'))}
     ${row(`<kbd>g</kbd> ${t('kb.then')} …`, t('kb.go'))}
     ${row('<kbd>Esc</kbd>', t('kb.esc'))}
   </dl>`;
