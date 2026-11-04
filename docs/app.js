@@ -69,7 +69,19 @@ async function loadData() {
     o.latN = parseFloat(o.lat); o.lonN = parseFloat(o.lon);
     return o;
   });
-  DB.routes = rt.map(r => toObj(ROUTE_FIELDS, r));
+  // Routes reference airlines and airports by their OpenFlights IDs (AviationSchema). The code
+  // columns may hold IATA or ICAO codes, so resolve each route to IATA codes through the IDs,
+  // keeping the route's own code only when an ID is missing from the tables.
+  const airlineById = new Map(DB.airlines.map(a => [a.id, a]));
+  const airportById = new Map(DB.airports.map(a => [a.id, a]));
+  DB.routes = rt.map(r => {
+    const o = toObj(ROUTE_FIELDS, r);
+    const code = x => (x && !isNull(x.iata) ? x.iata : null);
+    o.airline = code(airlineById.get(o.airlineId)) || o.airline;
+    o.src = code(airportById.get(o.srcId)) || o.src;
+    o.dst = code(airportById.get(o.dstId)) || o.dst;
+    return o;
+  });
 
   DB.airlines.forEach(a => DB.airline.set(a.iata, a));
   DB.airports.forEach(a => DB.airport.set(a.iata, a));
