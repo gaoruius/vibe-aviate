@@ -1,64 +1,86 @@
 :root {
-  --bg: #f4f7fb;
+  --bg: #f2f5f9;
   --surface: #ffffff;
-  --surface-2: #eef3f9;
-  --border: #dbe3ee;
-  --text: #0f1b2d;
-  --muted: #5b6b82;
-  --accent: #0ea5e9;
-  --accent-strong: #0369a1;
-  --accent-soft: #e0f2fe;
+  --surface-2: #edf1f7;
+  --border: #d6deea;
+  --text: #0b1b33;
+  --muted: #52637c;
+  --accent: #1673e6;
+  --accent-strong: #0a5bc4;
+  --accent-soft: #e2edfc;
   --on-accent: #ffffff;
-  --btn-bg: #0369a1;
-  --warm: #f97316;
-  --good: #16a34a;
-  --bad: #dc2626;
-  --shadow: 0 1px 2px rgba(15, 27, 45, .06), 0 8px 24px rgba(15, 27, 45, .06);
+  --btn-bg: #0a5bc4;
+  --warm: #f08a24;
+  --good: #0d7a3c;
+  --bad: #d63a3a;
+  --shadow: 0 1px 2px rgba(11, 27, 51, .06), 0 10px 28px rgba(11, 27, 51, .08);
   --radius: 14px;
-  --hero-from: #0c4a6e;
-  --hero-to: #0ea5e9;
+  --hero-from: #071a36;
+  --hero-to: #0f3a73;
+  /* airline livery */
+  --navy: #0b1f3a;
+  --navy-2: #12305a;
+  --on-navy: #eef3fa;
+  --on-navy-muted: #a9b9d1;
+  --amber: #f5b301;
+  --board: #0a1628;
+  --board-ink: #ffc93c;
   color-scheme: light;
 }
 @media (prefers-color-scheme: dark) {
   :root:not([data-theme="light"]) {
-    --bg: #0a1220;
-    --surface: #111c2e;
-    --surface-2: #17243a;
-    --border: #24344d;
-    --text: #e6edf7;
-    --muted: #93a4bd;
-    --accent: #38bdf8;
-    --accent-strong: #7dd3fc;
-    --accent-soft: #0c2a42;
-    --on-accent: #062033;
-    --btn-bg: #38bdf8;
-    --warm: #fb923c;
-    --good: #4ade80;
-    --bad: #f87171;
-    --shadow: 0 1px 2px rgba(0, 0, 0, .3), 0 8px 24px rgba(0, 0, 0, .25);
-    --hero-from: #082f49;
-    --hero-to: #0369a1;
+    --bg: #061024;
+    --surface: #0d1c35;
+    --surface-2: #132848;
+    --border: #213a60;
+    --text: #e8eff9;
+    --muted: #9fb2cd;
+    --accent: #4ea4ff;
+    --accent-strong: #8cc5ff;
+    --accent-soft: #10305a;
+    --on-accent: #03122a;
+    --btn-bg: #4ea4ff;
+    --warm: #ff9a3c;
+    --good: #3fd17f;
+    --bad: #ff6b6b;
+    --shadow: 0 1px 2px rgba(0, 0, 0, .35), 0 10px 28px rgba(0, 0, 0, .3);
+    --hero-from: #030b1a;
+    --hero-to: #0b2a55;
+    --navy: #040c1c;
+    --navy-2: #0b1d3a;
+    --on-navy: #eef3fa;
+    --on-navy-muted: #9fb2cd;
+    --amber: #ffc21a;
+    --board: #030a17;
+    --board-ink: #ffc93c;
     color-scheme: dark;
   }
 }
 :root[data-theme="dark"] {
-  --bg: #0a1220;
-  --surface: #111c2e;
-  --surface-2: #17243a;
-  --border: #24344d;
-  --text: #e6edf7;
-  --muted: #93a4bd;
-  --accent: #38bdf8;
-  --accent-strong: #7dd3fc;
-  --accent-soft: #0c2a42;
-  --on-accent: #062033;
-  --btn-bg: #38bdf8;
-  --warm: #fb923c;
-  --good: #4ade80;
-  --bad: #f87171;
-  --shadow: 0 1px 2px rgba(0, 0, 0, .3), 0 8px 24px rgba(0, 0, 0, .25);
-  --hero-from: #082f49;
-  --hero-to: #0369a1;
+  --bg: #061024;
+  --surface: #0d1c35;
+  --surface-2: #132848;
+  --border: #213a60;
+  --text: #e8eff9;
+  --muted: #9fb2cd;
+  --accent: #4ea4ff;
+  --accent-strong: #8cc5ff;
+  --accent-soft: #10305a;
+  --on-accent: #03122a;
+  --btn-bg: #4ea4ff;
+  --warm: #ff9a3c;
+  --good: #3fd17f;
+  --bad: #ff6b6b;
+  --shadow: 0 1px 2px rgba(0, 0, 0, .35), 0 10px 28px rgba(0, 0, 0, .3);
+  --hero-from: #030b1a;
+  --hero-to: #0b2a55;
+  --navy: #040c1c;
+  --navy-2: #0b1d3a;
+  --on-navy: #eef3fa;
+  --on-navy-muted: #9fb2cd;
+  --amber: #ffc21a;
+  --board: #030a17;
+  --board-ink: #ffc93c;
   color-scheme: dark;
 }
 :root[data-theme="light"] { color-scheme: light; }
@@ -66,7 +88,7 @@
 * { box-sizing: border-box; }
 html, body { margin: 0; }
 body {
-  font-family: Inter, system-ui, -apple-system, "Segoe UI", sans-serif;
+  font-family: Barlow, system-ui, -apple-system, "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
   background: var(--bg);
   color: var(--text);
   line-height: 1.5;
@@ -74,14 +96,14 @@ body {
   display: flex;
   flex-direction: column;
 }
-h1, h2, h3 { font-family: "Space Grotesk", Inter, sans-serif; line-height: 1.2; margin: 0 0 .5rem; }
+h1, h2, h3 { font-family: "Barlow Condensed", Barlow, "PingFang SC", sans-serif; line-height: 1.2; margin: 0 0 .5rem; }
 h1 { font-size: clamp(1.6rem, 3vw, 2.2rem); }
 h2 { font-size: 1.3rem; }
 h3 { font-size: 1.05rem; }
 /* Blue is reserved for things you can click. */
 a { color: var(--accent-strong); text-decoration: underline; text-decoration-color: color-mix(in srgb, currentColor 35%, transparent); text-underline-offset: 3px; }
 a:hover { text-decoration-color: currentColor; }
-code, .mono { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; }
+code, .mono { font-family: "IBM Plex Mono", ui-monospace, SFMono-Regular, Menlo, monospace; }
 
 /* ---------- Top bar ---------- */
 .topbar {
@@ -92,7 +114,7 @@ code, .mono { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; }
   backdrop-filter: blur(10px);
   border-bottom: 1px solid var(--border);
 }
-.brand { display: flex; align-items: center; gap: .5rem; text-decoration: none; color: var(--text); font-family: "Space Grotesk", sans-serif; font-size: 1.25rem; }
+.brand { display: flex; align-items: center; gap: .5rem; text-decoration: none; color: var(--text); font-family: "Barlow Condensed", sans-serif; font-size: 1.25rem; }
 .brand svg { width: 28px; height: 28px; fill: var(--accent); transform: rotate(45deg); transition: transform .5s; }
 .brand:hover svg { transform: rotate(45deg) translateY(-4px); }
 .brand b { color: var(--accent-strong); }
@@ -148,7 +170,7 @@ main { flex: 1; width: 100%; max-width: 1240px; margin: 0 auto; padding: 1.5rem 
 
 .stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 1rem; margin-bottom: 1.25rem; }
 .stat { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 1rem 1.1rem; box-shadow: var(--shadow); }
-.stat .num { font-family: "Space Grotesk", sans-serif; font-size: 1.8rem; font-weight: 700; color: var(--text); }
+.stat .num { font-family: "Barlow Condensed", sans-serif; font-size: 1.8rem; font-weight: 700; color: var(--text); }
 .stat .lbl { color: var(--muted); font-size: .85rem; }
 
 .feature-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 1rem; }
@@ -166,7 +188,7 @@ input[type=text], input[type=search], select {
   font: inherit; color: var(--text); background: var(--surface-2);
   border: 1px solid var(--border); border-radius: 10px; padding: .6rem .8rem; min-width: 0;
 }
-input.code { width: 9.5rem; text-transform: uppercase; font-family: ui-monospace, Menlo, monospace; letter-spacing: .08em; }
+input.code { width: 9.5rem; text-transform: uppercase; font-family: "IBM Plex Mono", ui-monospace, Menlo, monospace; letter-spacing: .08em; }
 input:focus, select:focus { outline: 2px solid var(--accent); outline-offset: 1px; }
 .check { display: flex; align-items: center; gap: .4rem; font-size: .9rem; color: var(--muted); padding-bottom: .6rem; }
 .btn {
@@ -190,7 +212,7 @@ input:focus, select:focus { outline: 2px solid var(--accent); outline-offset: 1p
 
 /* ---------- Entity cards ---------- */
 .entity-head { display: flex; align-items: center; gap: 1rem; margin-bottom: 1rem; flex-wrap: wrap; }
-.badge { font-family: ui-monospace, Menlo, monospace; font-weight: 700; font-size: 1.3rem; padding: .35rem .7rem; border-radius: 10px; background: var(--surface-2); border: 1px solid var(--border); color: var(--text); }
+.badge { font-family: "IBM Plex Mono", ui-monospace, Menlo, monospace; font-weight: 700; font-size: 1.3rem; padding: .35rem .7rem; border-radius: 10px; background: var(--surface-2); border: 1px solid var(--border); color: var(--text); }
 .entity-head h2 { margin: 0; }
 .entity-head .sub { color: var(--muted); font-size: .9rem; }
 .kv { display: grid; grid-template-columns: repeat(auto-fill, minmax(190px, 1fr)); gap: .6rem; margin: 0; }
@@ -209,7 +231,7 @@ th { position: sticky; top: 0; background: var(--surface-2); z-index: 1; font-si
 tbody tr:hover { background: var(--accent-soft); }
 td.num, th.num { text-align: right; font-variant-numeric: tabular-nums; }
 td.hl { font-weight: 700; color: var(--text); }
-a.code-link { font-family: ui-monospace, Menlo, monospace; font-weight: 600; }
+a.code-link { font-family: "IBM Plex Mono", ui-monospace, Menlo, monospace; font-weight: 600; }
 .bar { display: inline-block; height: 8px; border-radius: 4px; background: var(--accent); vertical-align: middle; margin-right: .5rem; opacity: .75; }
 
 /* ---------- Messages ---------- */
@@ -224,13 +246,13 @@ a.code-link { font-family: ui-monospace, Menlo, monospace; font-weight: 600; }
 .map { height: 420px; border-radius: 12px; border: 1px solid var(--border); z-index: 0; }
 .map.small { height: 260px; }
 .chart-box { position: relative; height: 320px; }
-.leaflet-container { font-family: Inter, sans-serif; background: var(--surface-2); }
+.leaflet-container { font-family: Barlow, sans-serif; background: var(--surface-2); }
 .leaflet-tile-pane { filter: saturate(.55) brightness(1.03); }
 @media (prefers-color-scheme: dark) {
   :root:not([data-theme="light"]) .leaflet-tile-pane { filter: invert(1) hue-rotate(180deg) brightness(.85) contrast(.9) saturate(.4); }
 }
 :root[data-theme="dark"] .leaflet-tile-pane { filter: invert(1) hue-rotate(180deg) brightness(.85) contrast(.9) saturate(.4); }
-.map-pin { display: grid; place-items: center; width: 30px; height: 30px; border-radius: 50%; font: 700 11px Inter, sans-serif; color: #fff; border: 2px solid #fff; box-shadow: 0 2px 6px rgba(0,0,0,.35); }
+.map-pin { display: grid; place-items: center; width: 30px; height: 30px; border-radius: 50%; font: 700 11px Barlow, sans-serif; color: #fff; border: 2px solid #fff; box-shadow: 0 2px 6px rgba(0,0,0,.35); }
 .map-pin.src { background: var(--good); }
 .map-pin.dst { background: var(--bad); }
 .map-pin.via { background: var(--warm); }
@@ -244,8 +266,8 @@ a.code-link { font-family: ui-monospace, Menlo, monospace; font-weight: 600; }
 
 /* ---------- About ---------- */
 .id-card { display: flex; gap: 1.5rem; align-items: center; flex-wrap: wrap; }
-.avatar { width: 140px; height: 140px; border-radius: 50%; object-fit: cover; border: 4px solid var(--accent-soft); background: linear-gradient(135deg, var(--hero-from), var(--hero-to)); color: #fff; display: grid; place-items: center; font: 700 2.6rem "Space Grotesk", sans-serif; flex: none; }
-.id-card .idnum { font-family: ui-monospace, Menlo, monospace; font-size: 1.6rem; font-weight: 700; color: var(--text); letter-spacing: .06em; }
+.avatar { width: 140px; height: 140px; border-radius: 50%; object-fit: cover; border: 4px solid var(--accent-soft); background: linear-gradient(135deg, var(--hero-from), var(--hero-to)); color: #fff; display: grid; place-items: center; font: 700 2.6rem "Barlow Condensed", sans-serif; flex: none; }
+.id-card .idnum { font-family: "IBM Plex Mono", ui-monospace, Menlo, monospace; font-size: 1.6rem; font-weight: 700; color: var(--text); letter-spacing: .06em; }
 .verify { display: inline-flex; align-items: center; gap: .4rem; color: var(--good); font-weight: 600; font-size: .9rem; margin-top: .5rem; }
 ul.clean { padding-left: 1.2rem; margin: .25rem 0; }
 ul.clean li { margin: .25rem 0; }
@@ -266,7 +288,7 @@ tbody tr.selected { background: var(--accent-soft); box-shadow: inset 3px 0 0 va
 .hint { color: var(--muted); margin: 0 0 .75rem; font-size: .9rem; }
 .stack { display: grid; gap: .75rem; }
 .chip.pick { color: var(--text); }
-.chip.pick b { font-family: ui-monospace, Menlo, monospace; margin-right: .2rem; }
+.chip.pick b { font-family: "IBM Plex Mono", ui-monospace, Menlo, monospace; margin-right: .2rem; }
 .msg .chips { margin-top: .6rem; }
 span.chip { cursor: default; }
 .leaflet-bar a, .leaflet-bar a:hover { background: var(--surface); color: var(--text); border-bottom-color: var(--border); }
@@ -280,7 +302,7 @@ span.chip { cursor: default; }
 .foot-links a { color: var(--muted); }
 .foot-links a:hover { color: var(--accent-strong); }
 .install-btn { font: inherit; font-weight: 600; color: var(--accent-strong); background: var(--accent-soft); border: 1px solid var(--border); border-radius: 999px; padding: .2rem .7rem; cursor: pointer; }
-kbd { font-family: ui-monospace, Menlo, monospace; font-size: .8em; padding: .1em .45em; border: 1px solid var(--border); border-bottom-width: 2px; border-radius: 5px; background: var(--surface-2); color: var(--text); }
+kbd { font-family: "IBM Plex Mono", ui-monospace, Menlo, monospace; font-size: .8em; padding: .1em .45em; border: 1px solid var(--border); border-bottom-width: 2px; border-radius: 5px; background: var(--surface-2); color: var(--text); }
 @media (hover: none) { .kb-hint { display: none; } }
 
 .skip-link { position: fixed; left: 16px; top: -60px; z-index: 2000; font: inherit; font-weight: 600; padding: .6rem 1rem; border-radius: 10px; border: 2px solid var(--accent); background: var(--surface); color: var(--text); cursor: pointer; transition: top .15s; }
@@ -313,10 +335,10 @@ details.faq p { margin: .5rem 0 0; color: var(--muted); }
 
 .timeline { list-style: none; margin: 0; padding: 0; }
 .timeline h2 { display: flex; gap: .75rem; align-items: baseline; }
-.timeline time { font: 500 .85rem Inter, sans-serif; color: var(--muted); }
+.timeline time { font: 500 .85rem Barlow, sans-serif; color: var(--muted); }
 
 .notfound { text-align: center; max-width: 560px; margin: 3rem auto; padding: 2.5rem 1.5rem; }
-.nf-code { font: 700 3.5rem "Space Grotesk", sans-serif; color: var(--muted); margin-bottom: .5rem; }
+.nf-code { font: 700 3.5rem "Barlow Condensed", sans-serif; color: var(--muted); margin-bottom: .5rem; }
 .notfound p { color: var(--muted); }
 
 /* ---------- Print: just the results ---------- */
@@ -349,10 +371,186 @@ details.faq p { margin: .5rem 0 0; color: var(--muted); }
 .map-filter .chip { display: inline-flex; align-items: center; gap: .35rem; font-weight: 600; color: var(--text); }
 .map-filter .chip.active { background: var(--accent-soft); border-color: var(--accent); color: var(--accent-strong); }
 .swatch { width: 10px; height: 10px; border-radius: 50%; display: inline-block; }
-.hub-label { font: 700 11px/14px Inter, sans-serif; color: var(--text); text-align: center; white-space: nowrap; pointer-events: none; text-shadow: 0 0 3px var(--surface), 0 0 3px var(--surface), 0 0 2px var(--surface); }
+.hub-label { font: 700 11px/14px Barlow, sans-serif; color: var(--text); text-align: center; white-space: nowrap; pointer-events: none; text-shadow: 0 0 3px var(--surface), 0 0 3px var(--surface), 0 0 2px var(--surface); }
 .map-region { margin: 0 0 .5rem; }
 .map-region .chip.active { background: var(--surface); border-color: var(--text); color: var(--text); font-weight: 600; }
 
 /* Translated names keep the original OpenFlights value underneath. */
 .orig { display: block; font-size: .78em; font-weight: 400; color: var(--muted); }
 td .orig { font-size: .75rem; }
+
+/* =====================================================================
+   Airline theme: navy livery, airport-signage type, departure boards,
+   boarding passes. Overrides the base rules above.
+   ===================================================================== */
+
+/* Signage typography */
+h1, h2, .feature h2 { font-family: "Barlow Condensed", Barlow, "PingFang SC", sans-serif; letter-spacing: .01em; }
+h1 { font-size: clamp(1.9rem, 3.6vw, 2.6rem); font-weight: 700; }
+h2 { font-size: 1.45rem; font-weight: 700; }
+.page-head h1::after { content: ""; display: block; width: 56px; height: 4px; margin-top: .45rem; border-radius: 2px; background: var(--amber); }
+
+/* Top bar in airline navy, with a livery stripe */
+.topbar { background: var(--navy); border-bottom: 0; box-shadow: 0 2px 0 var(--amber), 0 6px 18px rgba(3, 10, 24, .25); backdrop-filter: none; }
+.brand { color: var(--on-navy); font-family: "Barlow Condensed", sans-serif; font-size: 1.45rem; font-weight: 700; letter-spacing: .02em; }
+.brand svg { fill: var(--amber); }
+.brand b { color: var(--amber); font-weight: 700; }
+.nav a { color: var(--on-navy-muted); font-weight: 600; border-radius: 6px; letter-spacing: .02em; }
+.nav a:hover { background: rgba(255, 255, 255, .08); color: var(--on-navy); }
+.nav a.active { background: transparent; color: #fff; box-shadow: inset 0 -3px 0 var(--amber); border-radius: 0; }
+.lang-select, .theme-toggle, .menu-toggle { background: rgba(255, 255, 255, .06); color: var(--on-navy); border-color: rgba(255, 255, 255, .22); }
+.lang-select:hover, .theme-toggle:hover { background: rgba(255, 255, 255, .14); }
+.lang-select option { color: #0b1b33; }
+@media (max-width: 860px) {
+  .nav { background: var(--navy); border-bottom: 2px solid var(--amber); }
+  .nav a.active { box-shadow: inset 3px 0 0 var(--amber); }
+}
+
+/* Buttons: bold, airline call-to-action */
+.btn { font-weight: 700; letter-spacing: .02em; border-radius: 8px; }
+.btn.big { padding: .85rem 1.6rem; font-size: 1.05rem; }
+
+/* ---------- Hero with booking widget ---------- */
+.hero {
+  border-radius: 18px; padding: clamp(1.5rem, 4vw, 2.75rem);
+  background:
+    radial-gradient(circle at 1px 1px, rgba(255, 255, 255, .13) 1px, transparent 1.5px) 0 0 / 22px 22px,
+    radial-gradient(120% 90% at 85% 0%, rgba(22, 115, 230, .55), transparent 60%),
+    linear-gradient(160deg, var(--hero-from), var(--hero-to));
+  box-shadow: var(--shadow);
+}
+.hero::after { /* runway centre-line along the bottom edge */
+  content: ""; position: absolute; left: 0; right: 0; bottom: 0; height: 6px;
+  background: repeating-linear-gradient(90deg, var(--amber) 0 28px, transparent 28px 52px); opacity: .85;
+}
+.hero-copy { position: relative; max-width: 640px; }
+.kicker { font: 600 .78rem/1 "IBM Plex Mono", ui-monospace, monospace; letter-spacing: .14em; text-transform: uppercase; color: var(--amber); margin: 0 0 .75rem; }
+.hero h1 { font-size: clamp(2.2rem, 5vw, 3.4rem); max-width: 16ch; text-transform: uppercase; line-height: 1.02; margin-bottom: .6rem; }
+.hero p { opacity: .88; }
+
+.booking { position: relative; margin-top: 1.5rem; background: var(--surface); color: var(--text); border-radius: 14px; box-shadow: 0 18px 40px rgba(3, 10, 24, .35); overflow: hidden; }
+.booking-tabs { display: flex; gap: 0; border-bottom: 1px solid var(--border); background: var(--surface-2); overflow-x: auto; }
+.booking-tabs button { all: unset; display: inline-flex; align-items: center; gap: .45rem; padding: .85rem 1.2rem; font-weight: 700; font-size: .95rem; color: var(--muted); cursor: pointer; white-space: nowrap; border-bottom: 3px solid transparent; }
+.booking-tabs button svg { width: 16px; height: 16px; fill: currentColor; transform: rotate(45deg); }
+.booking-tabs button[aria-selected="true"] { color: var(--text); background: var(--surface); border-bottom-color: var(--amber); }
+.booking-tabs button:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }
+.booking-row { display: flex; align-items: stretch; gap: .6rem; padding: 1rem; flex-wrap: wrap; }
+.booking-row[hidden] { display: none; }
+.bfield { flex: 1 1 200px; display: flex; flex-direction: column; gap: .2rem; padding: .55rem .85rem; border: 1px solid var(--border); border-radius: 10px; background: var(--surface); min-width: 0; }
+.bfield:focus-within { border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-soft); }
+.bfield span { font: 600 .7rem "IBM Plex Mono", ui-monospace, monospace; letter-spacing: .1em; text-transform: uppercase; color: var(--muted); }
+.bfield input { all: unset; font: 600 1.25rem Barlow, "PingFang SC", sans-serif; color: var(--text); min-width: 0; }
+.bfield input::placeholder { color: var(--muted); opacity: .7; font-weight: 500; }
+.bfield.wide { flex-basis: 360px; }
+.bswap { align-self: center; width: 40px; height: 40px; border-radius: 50%; border: 1px solid var(--border); background: var(--surface-2); color: var(--accent-strong); font-size: 1.1rem; cursor: pointer; flex: none; }
+.bswap:hover { background: var(--accent-soft); }
+.booking-row .btn.big { flex: none; }
+.booking-popular { display: flex; flex-wrap: wrap; gap: .35rem .9rem; align-items: center; padding: 0 1rem .9rem; font-size: .88rem; }
+.booking-popular span { font: 600 .7rem "IBM Plex Mono", ui-monospace, monospace; letter-spacing: .1em; text-transform: uppercase; color: var(--muted); }
+@media (max-width: 600px) {
+  .booking-row { flex-direction: column; }
+  .bfield, .bfield.wide { flex: none; } /* basis was a width; in a column it would become a height */
+  .bswap { transform: rotate(90deg); }
+  .booking-row .btn.big { justify-content: center; }
+}
+
+/* ---------- Departure-board stat tiles (split-flap digits) ---------- */
+.stat { background: var(--board); border-color: transparent; color: var(--on-navy); }
+.stat .lbl { color: var(--on-navy-muted); font: 600 .72rem "IBM Plex Mono", ui-monospace, monospace; letter-spacing: .1em; text-transform: uppercase; margin-top: .35rem; }
+.stat .num { display: flex; flex-wrap: wrap; gap: 3px; font: 600 1.5rem/1 "IBM Plex Mono", ui-monospace, monospace; color: var(--board-ink); }
+.flap { position: relative; display: inline-grid; place-items: center; min-width: 1.05em; padding: .28em .12em; border-radius: 4px; background: linear-gradient(#1b2b45 0 50%, #15233a 50% 100%); box-shadow: inset 0 -1px 0 rgba(0, 0, 0, .5); }
+.flap::after { content: ""; position: absolute; left: 0; right: 0; top: 50%; height: 1px; background: rgba(0, 0, 0, .55); }
+.flap.sep { background: none; box-shadow: none; min-width: .4em; padding-inline: 0; }
+.flap.sep::after { display: none; }
+.flap.done { animation: flapIn .18s ease-out; }
+@keyframes flapIn { from { transform: rotateX(70deg); } to { transform: none; } }
+
+/* ---------- Feature cards ---------- */
+.feature { border-top: 3px solid transparent; }
+.feature:hover { border-color: var(--border); border-top-color: var(--amber); }
+.feature .ico { width: 30px; height: 30px; fill: none; stroke: var(--accent-strong); stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
+.feature h2 { text-transform: uppercase; font-size: 1.15rem; margin-top: .5rem; }
+
+/* ---------- Tabs, chips, cards ---------- */
+.tabs { border-radius: 10px; }
+.tabs a.active { box-shadow: inset 0 -3px 0 var(--amber), var(--shadow); }
+.card h2 { text-transform: uppercase; }
+
+/* IATA code badge looks like a flight-board tile */
+.badge { background: var(--board); color: var(--board-ink); border: 0; font-size: 1.5rem; letter-spacing: .08em; padding: .35rem .75rem; border-radius: 8px; box-shadow: inset 0 -2px 0 rgba(0, 0, 0, .4); }
+.kv dt { font-family: "IBM Plex Mono", ui-monospace, monospace; letter-spacing: .08em; font-size: .68rem; }
+
+/* ---------- Tables: departures board header ---------- */
+.table-wrap { border-color: var(--border); }
+th { background: var(--board); color: var(--board-ink); font-family: "IBM Plex Mono", ui-monospace, monospace; letter-spacing: .06em; font-size: .72rem; border-bottom: 0; }
+.th-sort:hover { color: #fff; }
+.th-sort:focus-visible { outline-color: var(--board-ink); }
+tbody tr:nth-child(even) { background: color-mix(in srgb, var(--surface-2) 55%, transparent); }
+tbody tr:hover { background: var(--accent-soft); }
+.bar { background: var(--amber); opacity: 1; }
+
+/* ---------- One-hop boarding pass ---------- */
+.pass { display: grid; grid-template-columns: 1fr auto; background: var(--surface); border: 1px solid var(--border); border-radius: 16px; box-shadow: var(--shadow); margin-bottom: 1.25rem; overflow: hidden; }
+.pass-main { display: grid; grid-template-columns: auto 1fr auto; align-items: center; gap: 1rem; padding: 1.25rem 1.5rem; border-top: 6px solid var(--navy-2); }
+.pass-end { display: flex; flex-direction: column; min-width: 0; }
+.pass-end.right { text-align: right; }
+.pass-label, .pass-stub dt { font: 600 .68rem "IBM Plex Mono", ui-monospace, monospace; letter-spacing: .12em; text-transform: uppercase; color: var(--muted); }
+.pass-code { font: 700 clamp(2.4rem, 6vw, 3.6rem)/1 "Barlow Condensed", sans-serif; letter-spacing: .02em; }
+.pass-city { color: var(--muted); font-weight: 600; }
+.pass-path { position: relative; display: grid; place-items: center; min-width: 80px; }
+.pass-line { position: absolute; left: 0; right: 0; top: 50%; border-top: 2px dashed var(--border); }
+.pass-path svg { position: relative; width: 30px; height: 30px; fill: var(--accent-strong); transform: rotate(90deg); background: var(--surface); padding: 0 4px; }
+.pass-tag { position: absolute; top: calc(50% + 14px); font: 600 .7rem "IBM Plex Mono", ui-monospace, monospace; letter-spacing: .08em; text-transform: uppercase; color: var(--muted); white-space: nowrap; }
+.pass-stub { margin: 0; display: grid; grid-template-columns: 1fr 1fr; gap: .6rem 1.25rem; padding: 1.1rem 1.4rem; background: var(--board); color: var(--on-navy); border-left: 2px dashed rgba(255, 255, 255, .25); position: relative; }
+.pass-stub::before, .pass-stub::after { /* ticket notches */
+  content: ""; position: absolute; left: -11px; width: 20px; height: 20px; border-radius: 50%; background: var(--bg);
+}
+.pass-stub::before { top: -10px; }
+.pass-stub::after { bottom: -10px; }
+.pass-stub dt { color: var(--on-navy-muted); font-size: .62rem; }
+.pass-stub dd { margin: 0; font: 600 1.3rem "IBM Plex Mono", ui-monospace, monospace; color: var(--board-ink); }
+@media (max-width: 720px) {
+  .pass { grid-template-columns: 1fr; }
+  .pass-stub { border-left: 0; border-top: 2px dashed rgba(255, 255, 255, .25); }
+  .pass-stub::before, .pass-stub::after { display: none; }
+}
+
+/* Nonstop tickets */
+.tickets { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: .9rem; }
+.ticket { position: relative; border: 1px solid var(--border); border-left: 6px solid var(--amber); border-radius: 12px; padding: .9rem 1rem; background: var(--surface-2); }
+.ticket-airline { font-weight: 700; }
+.ticket-route { display: flex; align-items: center; gap: .6rem; margin: .35rem 0; font: 700 1.6rem/1 "Barlow Condensed", sans-serif; letter-spacing: .03em; }
+.ticket-route span { color: var(--muted); font-size: 1rem; }
+.ticket-meta { color: var(--muted); font-size: .88rem; }
+.tag { display: inline-block; font: 600 .66rem "IBM Plex Mono", ui-monospace, monospace; letter-spacing: .1em; text-transform: uppercase; padding: .15rem .45rem; border-radius: 4px; background: var(--good); color: #fff; vertical-align: middle; }
+.top-list .rank { background: var(--amber); color: #1f1600; }
+
+/* ---------- Boarding-pass ID card ---------- */
+.boarding { padding: 0; overflow: hidden; }
+.boarding-head { display: flex; justify-content: space-between; gap: 1rem; flex-wrap: wrap; padding: .7rem 1.25rem; background: var(--navy-2); color: var(--on-navy); font: 600 .75rem "IBM Plex Mono", ui-monospace, monospace; letter-spacing: .12em; text-transform: uppercase; }
+.boarding-head span:first-child { color: var(--amber); }
+.boarding .id-card { padding: 1.25rem; }
+.barcode { margin-left: auto; align-self: stretch; width: 120px; min-height: 120px; border-radius: 4px;
+  background: repeating-linear-gradient(90deg, var(--text) 0 2px, transparent 2px 4px, var(--text) 4px 5px, transparent 5px 8px, var(--text) 8px 11px, transparent 11px 13px); opacity: .85; }
+@media (max-width: 600px) { .barcode { width: 100%; min-height: 48px; } }
+.avatar { border-color: var(--amber); background: linear-gradient(160deg, var(--hero-from), var(--hero-to)); }
+
+/* ---------- Footer in navy ---------- */
+.footer { background: var(--navy); color: var(--on-navy-muted); border-top: 3px solid var(--amber); }
+.foot-links a { color: var(--on-navy); }
+.foot-links a:hover { color: #fff; }
+.footer kbd { background: rgba(255, 255, 255, .08); color: var(--on-navy); border-color: rgba(255, 255, 255, .25); }
+.install-btn { background: var(--amber); color: #1f1600; border: 0; }
+
+/* Map pins match the livery */
+.map-pin.via { background: var(--amber); color: #1f1600; }
+
+@media print {
+  .booking, .hero::after, .pass-stub::before, .pass-stub::after, .barcode { display: none !important; }
+  .stat, th, .badge, .pass-stub, .boarding-head { background: #fff !important; color: #000 !important; }
+  .flap { background: none; box-shadow: none; }
+}
+.orig.inline { display: inline; margin-left: .35em; font-family: "IBM Plex Mono", ui-monospace, monospace; }
+.sr-only { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; border: 0; }
+/* White text needs a deeper green than --good to reach 4.5:1 in both themes. */
+.tag, .map-pin.src { background: #0d7a3c; }

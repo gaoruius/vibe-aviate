@@ -2,7 +2,8 @@
  * All data is loaded from /data/*.txt and queried in the browser. */
 'use strict';
 
-const STUDENT = { name: 'Rui Gao', id: '20731015', school: 'De Anza College', course: 'CIS 51' };
+// photo: set to e.g. 'assets/me.jpg' after adding the file; empty shows initials.
+const STUDENT = { name: 'Rui Gao', id: '20731015', school: 'De Anza College', course: 'CIS 51', photo: '' };
 
 // [data key, i18n label key]
 const AIRLINE_FIELDS = [
@@ -181,7 +182,9 @@ function localField(type, obj, k) {
 function showLocal(type, obj, k) {
   const v = localField(type, obj, k);
   if (v === obj[k]) return show(obj[k]);
-  return `${esc(v)}<span class="orig" title="OpenFlights">${esc(obj[k])}</span>`;
+  // Short codes (DST "A", active "Y") sit inline so table rows stay one line high.
+  const inline = String(obj[k]).length <= 3 ? ' inline' : '';
+  return `${esc(v)}<span class="orig${inline}" title="OpenFlights">${esc(obj[k])}</span>`;
 }
 
 /* ---------------- Helpers ---------------- */
@@ -645,12 +648,36 @@ function renderHome(root) {
         <path d="M-20 120 C 260 40, 520 220, 820 180" stroke="#fff" stroke-width="2" fill="none" stroke-dasharray="6 8"/>
       </svg>
       <svg class="plane" viewBox="0 0 24 24" aria-hidden="true"><path d="M21 16v-2l-8-5V3.5a1.5 1.5 0 0 0-3 0V9l-8 5v2l8-2.5V19l-2 1.5V22l3.5-1 3.5 1v-1.5L13 19v-5.5z"/></svg>
-      <h1>${t('home.h1')}</h1>
-      <p>${t('home.lead')}</p>
-      <div class="hero-actions">
-        <a class="btn" href="#/onehop?src=SJC&dst=BOS">${t('home.ctaHop')}</a>
-        <a class="btn ghost" href="#/reports?type=airline&code=SB">${t('home.ctaSB')}</a>
+      <div class="hero-copy">
+        <p class="kicker">${t('home.kicker')}</p>
+        <h1>${t('home.h1')}</h1>
+        <p>${t('home.lead')}</p>
       </div>
+      <form class="booking" id="booking" aria-label="${t('book.label')}" novalidate>
+        <div class="booking-tabs" role="tablist">
+          <button type="button" role="tab" aria-selected="true" data-mode="route"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M21 16v-2l-8-5V3.5a1.5 1.5 0 0 0-3 0V9l-8 5v2l8-2.5V19l-2 1.5V22l3.5-1 3.5 1v-1.5L13 19v-5.5z"/></svg>${t('book.routes')}</button>
+          <button type="button" role="tab" aria-selected="false" data-mode="airport">${t('type.airport')}</button>
+          <button type="button" role="tab" aria-selected="false" data-mode="airline">${t('type.airline')}</button>
+        </div>
+        <div class="booking-row" data-pane="route">
+          <label class="bfield"><span>${t('hop.from')}</span><input name="src" type="text" list="airport-codes" placeholder="${t('hop.phSrc')}" autocomplete="off" maxlength="60"></label>
+          <button type="button" class="bswap" aria-label="${t('hop.swap')}" title="${t('hop.swap')}">⇄</button>
+          <label class="bfield"><span>${t('hop.to')}</span><input name="dst" type="text" list="airport-codes" placeholder="${t('hop.phDst')}" autocomplete="off" maxlength="60"></label>
+          <button class="btn big" type="submit">${t('book.search')}</button>
+        </div>
+        <div class="booking-row" data-pane="airport" hidden>
+          <label class="bfield wide"><span>${t('form.label.airport')}</span><input name="ap" type="text" list="airport-codes" placeholder="${t('form.ph.airport')}" autocomplete="off" maxlength="60"></label>
+          <button class="btn big" type="submit">${t('lookup.btn')}</button>
+        </div>
+        <div class="booking-row" data-pane="airline" hidden>
+          <label class="bfield wide"><span>${t('form.label.airline')}</span><input name="al" type="text" list="airline-codes" placeholder="${t('form.ph.airline')}" autocomplete="off" maxlength="60"></label>
+          <button class="btn big" type="submit">${t('lookup.btn')}</button>
+        </div>
+        <div class="booking-popular"><span>${t('book.popular')}</span>
+          ${[['SJC', 'BOS'], ['SFO', 'NRT'], ['LAX', 'YYZ'], ['SEA', 'MIA']].map(([a, b]) => `<a href="#/onehop?src=${a}&dst=${b}">${a} → ${b}</a>`).join('')}
+          <a href="#/reports?type=airline&code=SB">${t('home.ctaSB')}</a>
+        </div>
+      </form>
     </section>
 
     <div class="stats">
@@ -663,10 +690,10 @@ function renderHome(root) {
     ${getRecent().length ? `<div class="card">${recentChips()}</div>` : ''}
 
     <div class="feature-grid" style="margin-bottom:1.25rem">
-      <a class="feature" href="#/lookup"><div class="ico">🔎</div><h2>${t('nav.lookup')}</h2><p>${t('feat.lookup')}</p></a>
-      <a class="feature" href="#/reports"><div class="ico">📊</div><h2>${t('nav.reports')}</h2><p>${t('feat.reports')}</p></a>
-      <a class="feature" href="#/directory"><div class="ico">📇</div><h2>${t('nav.directory')}</h2><p>${t('feat.directory')}</p></a>
-      <a class="feature" href="#/onehop"><div class="ico">🗺️</div><h2>${t('nav.onehop')}</h2><p>${t('feat.onehop')}</p></a>
+      <a class="feature" href="#/lookup"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="6.5"/><path d="M16 16l4.5 4.5"/></svg><h2>${t('nav.lookup')}</h2><p>${t('feat.lookup')}</p></a>
+      <a class="feature" href="#/reports"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 20V10M10 20V4M16 20v-7M22 20H2"/></svg><h2>${t('nav.reports')}</h2><p>${t('feat.reports')}</p></a>
+      <a class="feature" href="#/directory"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M8 6h13M8 12h13M8 18h13"/><circle cx="3.5" cy="6" r="1"/><circle cx="3.5" cy="12" r="1"/><circle cx="3.5" cy="18" r="1"/></svg><h2>${t('nav.directory')}</h2><p>${t('feat.directory')}</p></a>
+      <a class="feature" href="#/onehop"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><circle cx="5" cy="18" r="2"/><circle cx="19" cy="6" r="2"/><path d="M6.5 16.5C9 10 13 14 17.5 7.5"/><circle cx="12" cy="12.5" r="1.2"/></svg><h2>${t('nav.onehop')}</h2><p>${t('feat.onehop')}</p></a>
     </div>
 
     <div class="grid grid-2">
@@ -691,6 +718,7 @@ function renderHome(root) {
   makeBarChart(root.querySelector('#c-airports'), busiest.map(x => `${x.k} · ${DB.airport.get(x.k) ? apCity(DB.airport.get(x.k)) : ''}`), busiest.map(x => x.n), t('chart.routes'),
     i => { location.hash = `#/reports?type=airport&code=${busiest[i].k}`; });
 
+  wireBooking(root.querySelector('#booking'));
   const net = homeNetworkMap(root.querySelector('#home-map'), root.querySelector('#home-map-hint'));
   const toggleGroup = (sel, btn) => root.querySelectorAll(sel).forEach(b => {
     b.classList.toggle('active', b === btn);
@@ -714,6 +742,34 @@ const REGIONS = {
   eu: ap => ap.lonN > -25 && ap.lonN < 45 && ap.latN > 34,
   ap: ap => ap.lonN > 60 || ap.lonN < -170,
 };
+
+// Home-page search box, styled like an airline booking widget: route / airport / airline tabs.
+function wireBooking(form) {
+  let mode = 'route';
+  const tabs = form.querySelectorAll('.booking-tabs button');
+  tabs.forEach(tab => tab.addEventListener('click', () => {
+    mode = tab.dataset.mode;
+    tabs.forEach(b => b.setAttribute('aria-selected', String(b === tab)));
+    form.querySelectorAll('.booking-row').forEach(row => { row.hidden = row.dataset.pane !== mode; });
+    form.querySelector(`[data-pane="${mode}"] input`).focus();
+  }));
+  form.querySelector('.bswap').addEventListener('click', () => {
+    [form.src.value, form.dst.value] = [form.dst.value, form.src.value];
+  });
+  form.addEventListener('submit', e => {
+    e.preventDefault();
+    const v = name => form[name].value.trim();
+    if (mode === 'route') {
+      const empty = ['src', 'dst'].find(n => !v(n));
+      if (empty) { form[empty].focus(); return; }
+      location.hash = `#/onehop?src=${encodeURIComponent(v('src'))}&dst=${encodeURIComponent(v('dst'))}`;
+    } else {
+      const name = mode === 'airport' ? 'ap' : 'al';
+      if (!v(name)) { form[name].focus(); return; }
+      location.hash = `#/lookup?type=${mode}&code=${encodeURIComponent(v(name))}`;
+    }
+  });
+}
 
 const AIRLINE_COLORS = { AA: '#2563eb', B6: '#0d9488', DL: '#dc2626', SB: '#16a34a', SY: '#db2777', UA: '#7c3aed', WN: '#f59e0b' };
 
@@ -1088,21 +1144,41 @@ function renderOneHop(root, params) {
       data = oneHop(S, D, same);
       addRecent({ hash: hopHref(S, D), kind: 'hop', a: S, b: D });
       const s = DB.airport.get(S), d = DB.airport.get(D);
+      const airlineName = c => (DB.airline.get(c) ? alName(DB.airline.get(c)) : c);
+      const mi = n => fmt(Math.round(n));
+      // Boarding-pass style summary of the search.
+      const passEnd = (label, ap, right) => `<div class="pass-end${right ? ' right' : ''}">
+          <span class="pass-label">${label}</span><b class="pass-code">${esc(ap.iata)}</b>
+          <span class="pass-city">${esc(apCity(ap))}</span></div>`;
+      const passStub = [
+        [t('hop.pairs'), fmt(data.pairs.length)], [t('hop.vias'), fmt(data.viaCount)],
+        [t('hop.shortest'), data.pairs.length ? mi(data.pairs[0].total) : '—'], [t('hop.directDist'), mi(data.directMiles)],
+      ];
+      const pass = `<div class="pass">
+          <div class="pass-main">
+            ${passEnd(t('hop.from'), s)}
+            <div class="pass-path" aria-hidden="true"><span class="pass-line"></span>
+              <svg viewBox="0 0 24 24"><path d="M21 16v-2l-8-5V3.5a1.5 1.5 0 0 0-3 0V9l-8 5v2l8-2.5V19l-2 1.5V22l3.5-1 3.5 1v-1.5L13 19v-5.5z"/></svg>
+              <span class="pass-tag">${data.direct.length ? t('hop.nonstopTag', { n: data.direct.length }) : t('hop.oneStop')}</span></div>
+            ${passEnd(t('hop.to'), d, true)}
+          </div>
+          <dl class="pass-stub">${passStub.map(([k, v]) => `<div><dt>${k}</dt><dd>${v}</dd></div>`).join('')}</dl>
+        </div>`;
+      // Nonstop routes as tickets; otherwise say there are none.
       const directNote = data.direct.length
-        ? `<div class="msg info">${t('hop.direct', { n: data.direct.length, s: esc(S), d: esc(D), airlines: data.direct.map(r => esc(r.airline)).join(', '), mi: fmt(Math.round(data.directMiles)) })}</div>`
-        : `<div class="msg">${t('hop.noDirect', { s: esc(S), d: esc(D), mi: fmt(Math.round(data.directMiles)) })}</div>`;
+        ? `<section class="card"><h2>${t('hop.nonstopTitle')}</h2><div class="tickets">${data.direct.map(r => `
+            <div class="ticket">
+              <div class="ticket-airline">${codeLink('airline', r.airline)} ${esc(airlineName(r.airline))}${r.codeshare === 'Y' ? ` <span class="null">${t('codeshare')}</span>` : ''}</div>
+              <div class="ticket-route"><b>${esc(S)}</b><span aria-hidden="true">✈</span><b>${esc(D)}</b></div>
+              <div class="ticket-meta"><span class="tag">${t('hop.nonstop')}</span> ${mi(data.directMiles)} ${t('unit.mi')} · ${t('col.equip')} ${show(r.equipment)}</div>
+            </div>`).join('')}</div></section>`
+        : `<div class="msg">${t('hop.noDirect', { s: esc(S), d: esc(D), mi: mi(data.directMiles) })}</div>`;
 
       if (!data.pairs.length) {
-        result = `${directNote}<div class="msg error" style="margin-top:1rem">${t(same ? 'hop.noneSame' : 'hop.none')}</div>`;
+        result = `${pass}${directNote}<div class="msg error" style="margin-top:1rem">${t(same ? 'hop.noneSame' : 'hop.none')}</div>`;
       } else {
-        const airlineName = c => (DB.airline.get(c) ? alName(DB.airline.get(c)) : c);
         result = `
-          <div class="stats">
-            <div class="stat"><div class="num">${fmt(data.pairs.length)}</div><div class="lbl">${t('hop.pairs')}</div></div>
-            <div class="stat"><div class="num">${fmt(data.viaCount)}</div><div class="lbl">${t('hop.vias')}</div></div>
-            <div class="stat"><div class="num">${fmt(Math.round(data.pairs[0].total))}</div><div class="lbl">${t('hop.shortest')}</div></div>
-            <div class="stat"><div class="num">${fmt(Math.round(data.directMiles))}</div><div class="lbl">${t('hop.directDist')}</div></div>
-          </div>
+          ${pass}
           ${directNote}
           <div class="grid grid-2" style="margin-top:1.25rem">
             <div class="card">
@@ -1116,7 +1192,7 @@ function renderOneHop(root, params) {
             </div>
             <div class="card">
               <div id="hop-map" class="map"></div>
-              <div class="legend"><span><i style="background:var(--good)"></i>${t('legend.src', { c: esc(S) })}</span><span><i style="background:var(--bad)"></i>${t('legend.dst', { c: esc(D) })}</span><span><i style="background:var(--warm)"></i>${t('legend.top5')}</span><span><i style="background:var(--accent)"></i>${t('legend.sel')}</span></div>
+              <div class="legend"><span><i style="background:var(--good)"></i>${t('legend.src', { c: esc(S) })}</span><span><i style="background:var(--bad)"></i>${t('legend.dst', { c: esc(D) })}</span><span><i style="background:var(--amber)"></i>${t('legend.top5')}</span><span><i style="background:var(--accent)"></i>${t('legend.sel')}</span></div>
             </div>
           </div>
           <div class="card" style="margin-top:1.25rem">
@@ -1168,7 +1244,7 @@ function renderOneHop(root, params) {
   const mapEl = root.querySelector('#hop-map');
   if (mapEl && data) {
     const map = makeMap(mapEl);
-    const warm = cssVar('--warm');
+    const warm = cssVar('--amber');
     const geo = geoFrame([data.s, data.d, ...data.pairs.map(p => p.via)]);
     const layers = [];
     data.top.forEach((v, i) => {
@@ -1218,10 +1294,12 @@ function renderAbout(root) {
   const li = keys => keys.map(k => `<li>${t(k)}</li>`).join('');
   root.innerHTML = `
     <div class="page-head"><h1>${t('about.title')}</h1><p>${t('about.lead')}</p></div>
-    <div class="card">
+    <div class="card boarding">
+      <div class="boarding-head"><span>${t('about.boarding')}</span><span>VibeAviate · ${esc(STUDENT.course)}</span></div>
       <div class="id-card">
-        <img class="avatar" src="assets/me.jpg" alt="${esc(t('about.photoAlt', { name: STUDENT.name }))}"
-          onerror="this.outerHTML='<div class=&quot;avatar&quot; aria-hidden=&quot;true&quot;>RG</div>'">
+        ${STUDENT.photo
+          ? `<img class="avatar" src="${esc(STUDENT.photo)}" alt="${esc(t('about.photoAlt', { name: STUDENT.name }))}">`
+          : `<div class="avatar" aria-hidden="true">${esc(STUDENT.name.split(' ').map(w => w[0]).join(''))}</div>`}
         <div>
           <div style="color:var(--muted);font-size:.85rem;text-transform:uppercase;letter-spacing:.06em;font-weight:600">${t('about.idLabel', { school: esc(STUDENT.school) })}</div>
           <div class="idnum">${esc(STUDENT.id)}</div>
@@ -1229,6 +1307,7 @@ function renderAbout(root) {
           <div style="color:var(--muted)">${t('about.role', { course: esc(STUDENT.course) })}</div>
           <div class="verify">${t('about.verify', { name: esc(STUDENT.name), id: esc(STUDENT.id) })}</div>
         </div>
+        <div class="barcode" aria-hidden="true"></div>
       </div>
     </div>
     <div class="grid grid-2">
@@ -1307,6 +1386,7 @@ function renderPrivacy(root) {
 }
 
 const CHANGELOG = [
+  { v: '1.5', date: '2026-11-04', items: ['cl.15a'] },
   { v: '1.4', date: '2026-10-30', items: ['cl.14a', 'cl.14b', 'cl.14c', 'cl.14d'] },
   { v: '1.3', date: '2026-10-30', items: ['cl.13a', 'cl.13b', 'cl.13c'] },
   { v: '1.2', date: '2026-10-30', items: ['cl.12a'] },
@@ -1357,8 +1437,29 @@ function route() {
   document.querySelectorAll('[data-nav]').forEach(a => a.classList.toggle('active', a.dataset.nav === page));
   document.querySelector('.nav').classList.remove('open');
   document.querySelector('.menu-toggle').setAttribute('aria-expanded', 'false');
+  flipNumbers(div);
   window.scrollTo(0, 0);
   if (document.activeElement === document.body || !root.contains(document.activeElement)) root.focus({ preventScroll: true });
+}
+
+// Departure-board effect: each stat number becomes split-flap tiles that roll to their value.
+function flipNumbers(root) {
+  const still = matchMedia('(prefers-reduced-motion: reduce)').matches;
+  root.querySelectorAll('.stat .num').forEach(el => {
+    const text = el.textContent.trim();
+    // Screen readers get the plain number; the tiles are decoration.
+    el.innerHTML = `<span class="sr-only">${esc(text)}</span>` +
+      [...text].map(ch => `<span class="flap${/\d/.test(ch) ? '' : ' sep'}" aria-hidden="true">${esc(ch)}</span>`).join('');
+    if (still) return;
+    el.querySelectorAll('.flap:not(.sep)').forEach((f, i) => {
+      const final = f.textContent;
+      let n = 0;
+      const timer = setInterval(() => {
+        if (++n > 6 + i * 2) { clearInterval(timer); f.textContent = final; f.classList.add('done'); return; }
+        f.textContent = String((+final + n) % 10);
+      }, 45);
+    });
+  });
 }
 
 /* ---------------- Theme ---------------- */

@@ -48,6 +48,6 @@ Then open http://localhost:8140.
 
 `docs/` is the whole site (no build step). GitHub Pages serves it from the `main` branch, `/docs` folder: https://gaoruius.github.io/vibe-aviate/
 
-To show a photo on the Get ID page, add `docs/assets/me.jpg`.
+To show a photo on the Get ID page, add `docs/assets/me.jpg` and set `photo` in `STUDENT` (top of `docs/app.js`).
 
 The service worker only registers on the https site, so local previews always show your latest edits. After changing site files, bump the `?v=` numbers in `index.html`; returning visitors get the new files on their next visit.
